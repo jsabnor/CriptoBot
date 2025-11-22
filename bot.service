@@ -1,0 +1,18 @@
+[Unit]
+Description=Trading Bot v1.0
+After=network.target
+
+[Service]
+Type=simple
+User=YOUR_USERNAME
+WorkingDirectory=/opt/bot
+Environment="PATH=/opt/bot/.venv/bin"
+ExecStart=/opt/bot/.venv/bin/python /opt/bot/bot_production.py
+Restart=on-failure
+RestartSec=10
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=trading-bot
+
+[Install]
+WantedBy=multi-user.target
