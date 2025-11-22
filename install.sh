@@ -224,8 +224,15 @@ TRADING_MODE=$TRADING_MODE
 CAPITAL_PER_PAIR=$CAPITAL
 EOF
 
+    # Obtener usuario actual (el que ejecutó sudo)
+    ACTUAL_USER=${SUDO_USER:-$USER}
+    
+    # Configurar permisos y propietario correctos
     chmod 600 .env
+    chown $ACTUAL_USER:$ACTUAL_USER .env
+    
     print_success "Archivo .env creado y protegido"
+    print_info "Propietario: $ACTUAL_USER | Permisos: 600 (solo lectura/escritura para el propietario)"
 else
     print_info "Usando archivo .env existente"
 fi

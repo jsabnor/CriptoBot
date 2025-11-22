@@ -498,9 +498,32 @@ echo '/swapfile none swap sw 0 0' | sudo tee -a /etc/fstab
 ## 📚 Archivos de Referencia
 
 - [README.md](README.md) - Descripción general del proyecto
+- [UPDATE.md](UPDATE.md) - Guía de actualizaciones
 - [requirements.txt](requirements.txt) - Lista de dependencias
 - [bot_production.py](bot_production.py) - Código principal del bot
 - [.env.example](.env.example) - Plantilla de configuración
+
+---
+
+## 🔄 Actualizaciones
+
+Para mantener el bot actualizado con las últimas mejoras y correcciones:
+
+```bash
+# Verificar si hay actualizaciones disponibles
+./check_updates.sh
+
+# Aplicar actualizaciones automáticamente
+./update.sh
+```
+
+📚 **Consulta [UPDATE.md](UPDATE.md) para más información sobre el sistema de actualización**
+
+El script de actualización:
+- ✅ Crea backup automático
+- ✅ Preserva tu configuración (`.env`, `bot_state.json`)
+- ✅ Actualiza dependencias si es necesario
+- ✅ Reinicia el bot automáticamente
 
 ---
 

@@ -70,6 +70,20 @@ Los siguientes documentos están disponibles en artifacts:
 3. **Paper trading** - `python bot_production.py`
 4. **Monitorear** - Revisar `bot_state.json` diariamente
 
+## 🔄 Actualizaciones
+
+Mantén el bot actualizado con las últimas mejoras:
+
+```bash
+# Verificar si hay actualizaciones
+./check_updates.sh
+
+# Aplicar actualizaciones
+./update.sh
+```
+
+📚 Ver [UPDATE.md](UPDATE.md) para más detalles
+
 ## ⚠️ Importante
 
 - ✅ Empezar con **paper trading** (no usa dinero real)

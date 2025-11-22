@@ -36,3 +36,8 @@ Thumbs.db
 # Backups
 *.bak
 *.backup
+*_backup_*/
+
+# Update backups (created by update.sh)
+CriptoBot_backup_*/
+
