@@ -195,13 +195,20 @@ print_success "Código actualizado"
 # ============================================================================
 print_info "Restaurando configuración..."
 
+# Obtener usuario actual (el que ejecutó sudo)
+ACTUAL_USER=${SUDO_USER:-$USER}
+
 if [ -f ".env.tmp" ]; then
     mv .env.tmp .env
+    # Restaurar permisos y propietario correctos
+    chmod 600 .env
+    chown $ACTUAL_USER:$ACTUAL_USER .env
     print_success "Archivo .env restaurado"
 fi
 
 if [ -f "bot_state.json.tmp" ]; then
     mv bot_state.json.tmp bot_state.json
+    chown $ACTUAL_USER:$ACTUAL_USER bot_state.json
     print_success "Archivo bot_state.json restaurado"
 fi
 
