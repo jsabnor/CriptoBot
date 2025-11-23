@@ -84,6 +84,16 @@ Mantén el bot actualizado con las últimas mejoras:
 
 📚 Ver [UPDATE.md](UPDATE.md) para más detalles
 
+## 📱 Notificaciones por Telegram
+
+El bot puede enviarte notificaciones en tiempo real de todas las operaciones:
+
+- 📈 **Compras** (con precio, cantidad, SL y TP esperados)
+- 📉 **Ventas** (con P&L y ROI)
+- 📊 **Estado del bot** (inicio, ciclos, errores)
+
+📚 Ver [TELEGRAM.md](TELEGRAM.md) para configurar notificaciones
+
 ## ⚠️ Importante
 
 - ✅ Empezar con **paper trading** (no usa dinero real)

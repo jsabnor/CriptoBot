@@ -6,6 +6,7 @@ import ccxt
 from datetime import datetime
 import json
 from dotenv import load_dotenv
+from telegram_notifier import TelegramNotifier
 
 # Cargar variables de entorno desde archivo .env
 load_dotenv()
@@ -99,6 +100,9 @@ class TradingBot:
             'options': {'defaultType': 'spot'},
         })
         
+        # Telegram notifier
+        self.telegram = TelegramNotifier()
+        
         print(f"\n{'='*70}")
         print(f"BOT v1.0 PRODUCTION - MODO: {self.MODE.upper()}")
         print(f"{'='*70}")
@@ -107,7 +111,12 @@ class TradingBot:
         for i, symbol in enumerate(self.SYMBOLS, 1):
             print(f"  {i}. {symbol} (Capital: {self.CAPITAL_PER_PAIR} EUR)")
         print(f"Capital Total: {self.TOTAL_CAPITAL} EUR")
+        print(f"Telegram: {'✓ Habilitado' if self.telegram.enabled else '✗ Deshabilitado'}")
         print(f"{'='*70}\n")
+        
+        # Notificar inicio por Telegram
+        if self.telegram.enabled:
+            self.telegram.notify_startup(self.MODE, self.SYMBOLS, self.TOTAL_CAPITAL)
     
     def fetch_ohlcv(self, symbol, limit=300):
         """Descarga datos OHLCV recientes."""
@@ -195,33 +204,50 @@ class TradingBot:
         
         return qty
     
-    def execute_buy(self, symbol, price, qty):
+    def execute_buy(self, symbol, price, qty, sl_price, tp_price):
         """Ejecuta orden de compra."""
+        cost = qty * price * (1 + self.COMMISSION)
+        
         if self.MODE == 'paper':
             print(f"📈 PAPER BUY: {symbol} | Qty: {qty:.8f} | Price: ${price:.2f}")
-            return True
+            success = True
         else:
             try:
                 order = self.exchange.create_market_buy_order(symbol, qty)
                 print(f"✅ LIVE BUY: {symbol} | Qty: {qty:.8f} | Price: ${price:.2f}")
-                return True
+                success = True
             except Exception as e:
                 print(f"❌ Error comprando {symbol}: {e}")
-                return False
+                self.telegram.notify_error(f"Error comprando {symbol}: {str(e)}")
+                success = False
+        
+        # Notificar por Telegram
+        if success and self.telegram.enabled:
+            self.telegram.notify_buy(symbol, price, qty, cost, sl_price, tp_price)
+        
+        return success
     
-    def execute_sell(self, symbol, price, qty, reason):
+    def execute_sell(self, symbol, price, qty, reason, entry_price, pnl):
         """Ejecuta orden de venta."""
         if self.MODE == 'paper':
             print(f"📉 PAPER SELL: {symbol} | Qty: {qty:.8f} | Price: ${price:.2f} | Reason: {reason}")
-            return True
+            success = True
         else:
             try:
                 order = self.exchange.create_market_sell_order(symbol, qty)
                 print(f"✅ LIVE SELL: {symbol} | Qty: {qty:.8f} | Price: ${price:.2f} | Reason: {reason}")
-                return True
+                success = True
             except Exception as e:
                 print(f"❌ Error vendiendo {symbol}: {e}")
-                return False
+                self.telegram.notify_error(f"Error vendiendo {symbol}: {str(e)}")
+                success = False
+        
+        # Notificar por Telegram
+        if success and self.telegram.enabled:
+            roi = ((price - entry_price) / entry_price) * 100 if entry_price > 0 else 0
+            self.telegram.notify_sell(symbol, price, qty, reason, pnl, roi)
+        
+        return success
     
     def process_symbol(self, symbol):
         """Procesa un símbolo (chequea entradas/salidas)."""
@@ -249,20 +275,20 @@ class TradingBot:
             # Trailing TP
             tp_price = position['max_price'] * (1 - self.TRAILING_TP_PERCENT)
             if low <= tp_price:
-                self.execute_sell(symbol, tp_price, position['size'], 'TP')
                 proceeds = position['size'] * tp_price * (1 - self.COMMISSION)
-                self.equity[symbol] += proceeds
                 pnl = proceeds - (position['size'] * position['entry_price'])
+                self.execute_sell(symbol, tp_price, position['size'], 'TP', position['entry_price'], pnl)
+                self.equity[symbol] += proceeds
                 self.log_trade(symbol, 'sell', tp_price, position['size'], 'TP', pnl)
                 self.positions[symbol] = None
                 return
             
             # Trailing SL MA
             if close < current['ma']:
-                self.execute_sell(symbol, close, position['size'], 'MA_SL')
                 proceeds = position['size'] * close * (1 - self.COMMISSION)
-                self.equity[symbol] += proceeds
                 pnl = proceeds - (position['size'] * position['entry_price'])
+                self.execute_sell(symbol, close, position['size'], 'MA_SL', position['entry_price'], pnl)
+                self.equity[symbol] += proceeds
                 self.log_trade(symbol, 'sell', close, position['size'], 'MA_SL', pnl)
                 self.positions[symbol] = None
                 return
@@ -271,20 +297,20 @@ class TradingBot:
             new_sl = close - current['atr'] * self.ATR_MULTIPLIER
             position['sl_price'] = max(position['sl_price'], new_sl)
             if low <= position['sl_price']:
-                self.execute_sell(symbol, position['sl_price'], position['size'], 'SL')
                 proceeds = position['size'] * position['sl_price'] * (1 - self.COMMISSION)
-                self.equity[symbol] += proceeds
                 pnl = proceeds - (position['size'] * position['entry_price'])
+                self.execute_sell(symbol, position['sl_price'], position['size'], 'SL', position['entry_price'], pnl)
+                self.equity[symbol] += proceeds
                 self.log_trade(symbol, 'sell', position['sl_price'], position['size'], 'SL', pnl)
                 self.positions[symbol] = None
                 return
             
             # Bearish exit
             if close < open_price and close < current['long_ma']:
-                self.execute_sell(symbol, close, position['size'], 'bearish')
                 proceeds = position['size'] * close * (1 - self.COMMISSION)
-                self.equity[symbol] += proceeds
                 pnl = proceeds - (position['size'] * position['entry_price'])
+                self.execute_sell(symbol, close, position['size'], 'bearish', position['entry_price'], pnl)
+                self.equity[symbol] += proceeds
                 self.log_trade(symbol, 'sell', close, position['size'], 'bearish', pnl)
                 self.positions[symbol] = None
                 return
@@ -299,12 +325,16 @@ class TradingBot:
                 if qty > 0:
                     cost = qty * close * (1 + self.COMMISSION)
                     if cost <= self.equity[symbol]:
-                        if self.execute_buy(symbol, close, qty):
+                        # Calcular SL y TP para la notificación
+                        sl_price = close - atr * self.ATR_MULTIPLIER
+                        tp_price = close * (1 + self.TRAILING_TP_PERCENT)  # TP estimado inicial
+                        
+                        if self.execute_buy(symbol, close, qty, sl_price, tp_price):
                             self.equity[symbol] -= cost
                             self.positions[symbol] = {
                                 'size': qty,
                                 'entry_price': close,
-                                'sl_price': close - atr * self.ATR_MULTIPLIER,
+                                'sl_price': sl_price,
                                 'max_price': current['high']
                             }
                             self.log_trade(symbol, 'buy', close, qty, '', 0)
@@ -392,6 +422,12 @@ class TradingBot:
         print(f"{'='*70}\n")
         
         self.save_state()
+        
+        # Notificar ciclo completado por Telegram
+        if self.telegram.enabled:
+            open_positions = sum(1 for p in self.positions.values() if p is not None)
+            roi = ((total_equity - self.TOTAL_CAPITAL) / self.TOTAL_CAPITAL * 100)
+            self.telegram.notify_cycle_complete(total_equity, self.TOTAL_CAPITAL, roi, open_positions)
     
     def run_continuous(self, interval_hours=4):
         """Ejecuta el bot continuamente."""
