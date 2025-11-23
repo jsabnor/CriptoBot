@@ -231,6 +231,29 @@ else
 fi
 
 # ============================================================================
+# 11.5. CORREGIR PERMISOS DE TODOS LOS ARCHIVOS
+# ============================================================================
+print_info "Corrigiendo permisos de archivos..."
+
+# Obtener usuario actual (el que ejecutó sudo)
+ACTUAL_USER=${SUDO_USER:-$USER}
+
+# Cambiar propietario de todo el directorio al usuario correcto
+chown -R $ACTUAL_USER:$ACTUAL_USER "$SCRIPT_DIR"
+
+# Asegurar permisos específicos para archivos sensibles
+if [ -f ".env" ]; then
+    chmod 600 .env
+fi
+
+# Hacer scripts ejecutables
+chmod +x check_updates.sh 2>/dev/null || true
+chmod +x update.sh 2>/dev/null || true
+chmod +x install.sh 2>/dev/null || true
+
+print_success "Permisos corregidos"
+
+# ============================================================================
 # 12. REINICIAR EL BOT
 # ============================================================================
 if [ "$BOT_RUNNING" = true ]; then
