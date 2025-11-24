@@ -430,22 +430,54 @@ class TradingBot:
             self.telegram.notify_cycle_complete(total_equity, self.TOTAL_CAPITAL, roi, open_positions)
     
     def run_continuous(self, interval_hours=4):
-        """Ejecuta el bot continuamente."""
-        interval_seconds = interval_hours * 3600
+        """Ejecuta el bot continuamente, sincronizado con el cierre de velas."""
+        from datetime import timedelta
         
         print(f"\n🚀 Iniciando bot en modo continuo...")
-        print(f"⏰ Intervalo: cada {interval_hours} horas")
-        print(f"🛑 Presiona Ctrl+C para detener\n")
+        print(f"⏰ Timeframe: {interval_hours}h (sincronizado con cierre de velas)")
+        print(f"🛑 Presiona Ctrl+C para detener")
+        print(f"{'='*70}\n")
         
-        try:
-            while True:
+        while True:
+            try:
+                # Calcular próximo cierre de vela
+                now = datetime.utcnow()
+                
+                # Velas de 4h cierran a las 00:00, 04:00, 08:00, 12:00, 16:00, 20:00 UTC
+                current_hour = now.hour
+                next_close_hour = ((current_hour // interval_hours) + 1) * interval_hours
+                
+                if next_close_hour >= 24:
+                    # Próximo cierre es mañana a las 00:00
+                    next_close = datetime(now.year, now.month, now.day) + timedelta(days=1)
+                else:
+                    # Próximo cierre es hoy
+                    next_close = datetime(now.year, now.month, now.day, next_close_hour, 0, 0)
+                
+                # Añadir 30 segundos después del cierre para asegurar datos completos
+                next_run = next_close + timedelta(seconds=30)
+                
+                # Calcular tiempo de espera
+                wait_seconds = (next_run - now).total_seconds()
+                
+                if wait_seconds > 0:
+                    wait_minutes = int(wait_seconds / 60)
+                    print(f"⏳ Esperando al cierre de vela en {next_close.strftime('%H:%M:%S')} UTC")
+                    print(f"   Próximo análisis: {next_run.strftime('%H:%M:%S')} UTC ({wait_minutes} min)")
+                    time.sleep(wait_seconds)
+                
+                # Ejecutar ciclo de trading
                 self.run_once()
-                print(f"💤 Esperando {interval_hours} horas hasta el próximo ciclo...")
-                time.sleep(interval_seconds)
-        except KeyboardInterrupt:
-            print(f"\n\n🛑 Bot detenido por el usuario")
-            self.save_state()
-            print(f"💾 Estado guardado en bot_state.json")
+                
+            except KeyboardInterrupt:
+                print("\n\n🛑 Bot detenido por el usuario")
+                break
+            except Exception as e:
+                print(f"\n❌ Error en el ciclo continuo: {e}")
+                if self.telegram.enabled:
+                    self.telegram.notify_error(f"Error en ciclo continuo: {str(e)}")
+                print("⏳ Reintentando en 5 minutos...")
+                time.sleep(300)
 
 
 if __name__ == "__main__":
@@ -477,4 +509,3 @@ if __name__ == "__main__":
     
     # O ejecutar continuamente
     bot.run_continuous(interval_hours=4)
-
