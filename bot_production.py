@@ -120,6 +120,13 @@ class TradingBot:
         print(f"Caché de datos: ✓ Activo")
         print(f"{'='*70}\n")
         
+        # NUEVO: Precargar caché de datos al inicio
+        print("📊 Inicializando caché de datos históricos...")
+        for symbol in self.SYMBOLS:
+            # get_data solo actualiza si es necesario (>4h), sino carga desde disco
+            self.data_cache.get_data(symbol, self.TIMEFRAME)
+        print("✅ Caché inicializado correctamente\n")
+        
         # Notificar inicio por Telegram
         if self.telegram.enabled:
             self.telegram.notify_startup(self.MODE, self.SYMBOLS, self.TOTAL_CAPITAL)
