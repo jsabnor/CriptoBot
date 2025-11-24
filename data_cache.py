@@ -33,11 +33,13 @@ class DataCache:
         print(f"📥 Descargando HISTORIAL COMPLETO de {symbol}...")
         print(f"  ⏳ Esto puede tomar 1-2 minutos...")
         
-        # Empezar desde muy atrás (2015 para estar seguros)
-        start_date = datetime(2015, 1, 1)
+        # Empezar desde muy atrás (2015 en UTC)
+        # IMPORTANTE: Usar UTC para evitar problemas de timezone
+        from datetime import timezone
+        start_date = datetime(2015, 1, 1, tzinfo=timezone.utc)
         since = int(start_date.timestamp() * 1000)
         
-        print(f"  📅 Buscando desde: {start_date.strftime('%Y-%m-%d')}")
+        print(f"  📅 Buscando desde: {start_date.strftime('%Y-%m-%d %H:%M UTC')}")
         
         all_data = []
         candles_per_request = 1000
