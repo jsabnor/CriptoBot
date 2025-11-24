@@ -219,11 +219,17 @@ class DataCache:
         df = self.load_from_cache(symbol, timeframe)
         
         # Si el caché tiene menos de 5000 velas, es probable que sea incompleto
-        # Re-descargar desde cero
+        # ELIMINAR el archivo y re-descargar desde cero
         MIN_CANDLES = 5000
         if df is not None and len(df) < MIN_CANDLES:
             print(f"⚠️ Caché de {symbol} tiene solo {len(df)} velas (mínimo {MIN_CANDLES})")
-            print(f"   Re-descargando histórico completo...")
+            print(f"   Eliminando caché inválido y re-descargando...")
+            
+            # Eliminar archivo de caché inválido
+            cache_path = self.get_cache_path(symbol, timeframe)
+            if cache_path.exists():
+                cache_path.unlink()
+            
             df = None  # Forzar re-descarga
         
         if force_update or df is None or self.should_update(symbol, timeframe):
