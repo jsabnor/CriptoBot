@@ -19,29 +19,35 @@ class DataCache:
         safe_symbol = symbol.replace('/', '_')
         return self.data_dir / f"{safe_symbol}_{timeframe}.csv"
     
-    def download_full_history(self, symbol, timeframe='4h', max_candles=3000):
-        """Descarga máximo histórico disponible desde Binance
+    def download_full_history(self, symbol, timeframe='4h', max_candles=None):
+        """Descarga TODO el histórico disponible desde Binance
         
         Args:
             symbol: Par de trading (ej: 'ETH/USDT')
             timeframe: Timeframe (default: '4h')
-            max_candles: Máximo de velas a descargar (default: 3000)
+            max_candles: Máximo de velas (None = todo el disponible)
         
         Returns:
             DataFrame con columnas: timestamp, open, high, low, close, volume
         """
-        print(f"📥 Descargando histórico completo de {symbol}...")
+        print(f"📥 Descargando HISTORIAL COMPLETO de {symbol}...")
+        print(f"  ⏳ Esto puede tomar 1-2 minutos...")
+        
+        # Empezar desde muy atrás (2015 para estar seguros)
+        start_date = datetime(2015, 1, 1)
+        since = int(start_date.timestamp() * 1000)
+        
+        print(f"  📅 Buscando desde: {start_date.strftime('%Y-%m-%d')}")
         
         all_data = []
-        since = None
-        candles_per_request = 1000  # Máximo de Binance
+        candles_per_request = 1000
+        request_count = 0
+        max_requests = 50 if max_candles is None else (max_candles // 1000) + 1
         
-        # Calcular cuántos requests necesitamos
-        num_requests = min(3, (max_candles // candles_per_request) + 1)
-        
-        for i in range(num_requests):
+        while request_count < max_requests:
             try:
-                print(f"  🔄 Request {i+1}/{num_requests}...", end=' ')
+                request_count += 1
+                print(f"  🔄 Request {request_count}...", end=' ')
                 
                 ohlcv = self.exchange.fetch_ohlcv(
                     symbol, 
@@ -50,41 +56,42 @@ class DataCache:
                     limit=candles_per_request
                 )
                 
-                if not ohlcv:
-                    print("❌ Sin datos")
+                if not ohlcv or len(ohlcv) == 0:
+                    print("✓ Fin del histórico")
                     break
                 
-                # Validar que recibimos datos
                 received = len(ohlcv)
-                print(f"✓ {received} velas")
-                
                 all_data.extend(ohlcv)
+                print(f"✓ {received} velas (Total: {len(all_data)})")
                 
                 # Siguiente bloque desde la última vela + 1ms
                 since = ohlcv[-1][0] + 1
                 
-                # Si recibimos menos de 1000, no hay más datos
+                # Si recibimos menos de 1000, llegamos al presente
                 if received < candles_per_request:
-                    print(f"  ℹ️  No hay más datos históricos disponibles")
+                    print(f"  ✓ Alcanzado el presente")
                     break
                 
-                # Rate limiting - MUY IMPORTANTE
-                # Binance weight limit: 1200/min
-                # Esperamos 2 segundos entre requests para estar seguros
-                if i < num_requests - 1:  # No esperar después del último
-                    print(f"  ⏳ Esperando 2s (rate limit)...")
-                    time.sleep(2)
+                # Si tenemos max_candles y ya llegamos, parar
+                if max_candles and len(all_data) >= max_candles:
+                    print(f"  ✓ Límite alcanzado: {max_candles} velas")
+                    break
+                
+                # Rate limiting - 2.5 segundos para estar muy seguros
+                print(f"  ⏳ Esperando 2.5s...")
+                time.sleep(2.5)
                 
             except Exception as e:
-                print(f"\n  ⚠️  Error en request {i+1}: {e}")
+                print(f"\n  ⚠️  Error en request {request_count}: {e}")
                 
-                # Si es rate limit, esperar más
+                # Si es rate limit, esperar más y reintentar
                 if "rate limit" in str(e).lower() or "429" in str(e):
-                    print(f"  ⏸️  Rate limit detectado, esperando 10s...")
-                    time.sleep(10)
-                    # Reintentar este request
+                    print(f"  ⏸️  Rate limit detectado, esperando 15s...")
+                    time.sleep(15)
+                    request_count -= 1  # No contar este request fallido
                     continue
                 else:
+                    # Otro tipo de error, continuar con lo que tenemos
                     break
         
         if not all_data:
@@ -104,12 +111,13 @@ class DataCache:
         df = df.drop_duplicates(subset=['timestamp'])
         df = df.sort_values('timestamp').reset_index(drop=True)
         
-        # Mostrar rango de fechas
+        # Mostrar rango de fechas y tamaño
         first_date = df['timestamp'].iloc[0].strftime('%Y-%m-%d')
         last_date = df['timestamp'].iloc[-1].strftime('%Y-%m-%d')
+        years = (df['timestamp'].iloc[-1] - df['timestamp'].iloc[0]).days / 365
         
-        print(f"✓ Descargadas {len(df)} velas de {symbol}")
-        print(f"  📅 Desde {first_date} hasta {last_date}")
+        print(f"✅ {len(df)} velas descargadas de {symbol}")
+        print(f"  📅 Desde {first_date} hasta {last_date} (~{years:.1f} años)")
         
         return df
     
