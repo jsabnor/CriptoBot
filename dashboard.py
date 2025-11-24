@@ -147,11 +147,54 @@ def api_chart(symbol):
             return jsonify({'error': 'No data available'}), 404
         
         # Limitar a últimas 500 velas para el gráfico
-        df = df.tail(500)
+        df = df.tail(500).copy()
+        
+        # NUEVO: Obtener vela actual (en progreso) desde Binance API
+        try:
+            exchange = ccxt.binance({'enableRateLimit': True})
+            current_ohlcv = exchange.fetch_ohlcv(symbol_full, '4h', limit=1)
+            
+            if current_ohlcv and len(current_ohlcv) > 0:
+                current_candle = current_ohlcv[0]
+                current_timestamp = pd.to_datetime(current_candle[0], unit='ms')
+                
+                # Verificar si esta vela ya está en el caché (cerrada)
+                if current_timestamp not in df['timestamp'].values:
+                    # Es una vela nueva en progreso, añadirla
+                    current_df = pd.DataFrame([{
+                        'timestamp': current_timestamp,
+                        'open': current_candle[1],
+                        'high': current_candle[2],
+                        'low': current_candle[3],
+                        'close': current_candle[4],
+                        'volume': current_candle[5],
+                        'is_current': True  # Flag para identificarla en el frontend
+                    }])
+                    
+                    # Append la vela actual
+                    df = pd.concat([df, current_df], ignore_index=True)
+                else:
+                    # La vela ya existe en caché, actualizarla con valores actuales
+                    idx = df[df['timestamp'] == current_timestamp].index[0]
+                    df.loc[idx, 'open'] = current_candle[1]
+                    df.loc[idx, 'high'] = current_candle[2]
+                    df.loc[idx, 'low'] = current_candle[3]
+                    df.loc[idx, 'close'] = current_candle[4]
+                    df.loc[idx, 'volume'] = current_candle[5]
+                    df.loc[idx, 'is_current'] = True
+        except Exception as e:
+            print(f"⚠️ No se pudo obtener vela actual para {symbol_full}: {e}")
+            # Continuar sin vela actual
         
         # Calcular indicadores
         df = calculate_indicators(df)
         df = df.fillna(0)
+        
+        # Asegurar que is_current existe en todas las filas
+        if 'is_current' not in df.columns:
+            df['is_current'] = False
+        else:
+            df['is_current'] = df['is_current'].fillna(False)
         
         # Obtener trades de este símbolo
         trades = []

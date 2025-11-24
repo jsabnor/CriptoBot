@@ -79,18 +79,47 @@ function renderChart(symbol, data) {
         }
     }
 
-    // Candlestick trace
+    // NUEVO: Separar velas cerradas de la vela actual
+    const closedCandles = candles.filter(c => !c.is_current);
+    const currentCandle = candles.find(c => c.is_current);
+
+    // Candlestick trace (velas cerradas)
     const candlestick = {
-        x: candles.map(c => c.timestamp),
-        open: candles.map(c => c.open),
-        high: candles.map(c => c.high),
-        low: candles.map(c => c.low),
-        close: candles.map(c => c.close),
+        x: closedCandles.map(c => c.timestamp),
+        open: closedCandles.map(c => c.open),
+        high: closedCandles.map(c => c.high),
+        low: closedCandles.map(c => c.low),
+        close: closedCandles.map(c => c.close),
         type: 'candlestick',
         name: symbol,
         increasing: { line: { color: '#26a69a' } },
         decreasing: { line: { color: '#ef5350' } }
     };
+
+    const traces = [candlestick];
+
+    // NUEVO: Vela actual (en progreso) con estilo diferente
+    if (currentCandle) {
+        const currentCandleTrace = {
+            x: [currentCandle.timestamp],
+            open: [currentCandle.open],
+            high: [currentCandle.high],
+            low: [currentCandle.low],
+            close: [currentCandle.close],
+            type: 'candlestick',
+            name: 'Actual (en progreso)',
+            increasing: {
+                line: { color: '#26a69a', width: 2, dash: 'dot' },
+                fillcolor: 'rgba(38, 166, 154, 0.3)'
+            },
+            decreasing: {
+                line: { color: '#ef5350', width: 2, dash: 'dot' },
+                fillcolor: 'rgba(239, 83, 80, 0.3)'
+            },
+            opacity: 0.7
+        };
+        traces.push(currentCandleTrace);
+    }
 
     // MA50 line
     const ma50 = {
@@ -114,7 +143,7 @@ function renderChart(symbol, data) {
         yaxis: 'y'
     };
 
-    const traces = [candlestick, ma50, ma200];
+    traces.push(ma50, ma200);
 
     // Buy markers
     const buys = trades.filter(t => t.type === 'buy');

@@ -67,3 +67,4 @@ env/
 .DS_Store
 Thumbs.db
 instance//
+data/.last_update.json
