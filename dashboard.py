@@ -20,20 +20,39 @@ data_cache = DataCache()
 
 
 def calculate_indicators(df):
-    """Calcula indicadores técnicos para el gráfico"""
+    """Calcula indicadores técnicos para el gráfico (mismo lógica que bot)"""
+    df = df.copy()
+    
     # ATR
-    df['h_l'] = df['high'] - df['low']
-    df['h_pc'] = abs(df['high'] - df['close'].shift(1))
-    df['l_pc'] = abs(df['low'] - df['close'].shift(1))
-    df['tr'] = df[['h_l', 'h_pc', 'l_pc']].max(axis=1)
+    df['prev_close'] = df['close'].shift(1)
+    df['tr'] = pd.concat([
+        df['high'] - df['low'],
+        (df['high'] - df['prev_close']).abs(),
+        (df['low'] - df['prev_close']).abs()
+    ], axis=1).max(axis=1)
+    
+    # ATR Rolling (Simple approximation for dashboard speed)
     df['atr'] = df['tr'].rolling(window=ATR_LENGTH).mean()
     
     # MAs
     df['ma'] = df['close'].rolling(window=MA_LENGTH).mean()
     df['long_ma'] = df['close'].rolling(window=LONG_MA_LENGTH).mean()
     
-    # ADX (simplificado)
-    df['dx'] = abs((df['high'] - df['high'].shift(1)) - (df['low'].shift(1) - df['low']))
+    # ADX (Standard Welles Wilder)
+    df['dm_plus'] = (df['high'] - df['high'].shift(1)).where(
+        (df['high'] - df['high'].shift(1)) > (df['low'].shift(1) - df['low']), 0)
+    df['dm_minus'] = (df['low'].shift(1) - df['low']).where(
+        (df['low'].shift(1) - df['low']) > (df['high'] - df['high'].shift(1)), 0)
+    
+    # TR smoothed for ADX
+    df['tr_sm'] = df['tr'].rolling(14).mean() # Using simple rolling for dashboard responsiveness
+    
+    # Directional Indicators
+    df['di_plus'] = (df['dm_plus'].rolling(14).mean() / df['tr_sm']) * 100
+    df['di_minus'] = (df['dm_minus'].rolling(14).mean() / df['tr_sm']) * 100
+    
+    # DX and ADX
+    df['dx'] = (abs(df['di_plus'] - df['di_minus']) / (df['di_plus'] + df['di_minus'])) * 100
     df['adx'] = df['dx'].rolling(window=14).mean()
     
     return df
