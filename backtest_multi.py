@@ -16,8 +16,14 @@ import json
 # ============================================================================
 
 # Configuración
-API_KEY = 'lt2KQOoCSsxfHujtQNEnB9wDwCUJjZ1qOEhcUb3ws1aOamKTaOrjgzd74zyOZp2R'
-API_SECRET = 'iIVQXHN5PRXPxi64AjAR42Vz2BGFvp5eBh9LFQFHKkfjzeQef7dPjMmmEjxL5CJ9'
+from dotenv import load_dotenv
+
+# Cargar variables de entorno
+load_dotenv()
+
+# Configuración
+API_KEY = os.getenv('BINANCE_API_KEY')
+API_SECRET = os.getenv('BINANCE_API_SECRET')
 
 # Pares a testear (top volumen en Binance)
 SYMBOLS = [
@@ -116,27 +122,37 @@ def calculate_indicators(df):
         (df['low'] - df['prev_close']).abs()
     ], axis=1).max(axis=1)
     
-    atr = [float('nan')] * len(df)
-    for i in range(ATR_LENGTH, len(df)):
-        if i == ATR_LENGTH:
-            atr[i] = df['tr'].iloc[i-ATR_LENGTH+1:i+1].mean()
-        else:
-            atr[i] = (atr[i-1] * (ATR_LENGTH - 1) + df['tr'].iloc[i]) / ATR_LENGTH
-    df['atr'] = atr
-    df['atr'] = df['atr'].fillna(0)
+    # ATR (Wilder's Smoothing)
+    alpha = 1 / ATR_LENGTH
+    df['atr'] = df['tr'].ewm(alpha=alpha, adjust=False).mean().fillna(0)
     
     # Moving Averages
     df['ma'] = df['close'].rolling(window=MA_LENGTH).mean().fillna(0)
     df['long_ma'] = df['close'].rolling(window=LONG_MA_LENGTH).mean().fillna(0)
     
-    # ADX
-    df['dm_plus'] = (df['high'] - df['high'].shift(1)).where((df['high'] - df['high'].shift(1)) > (df['low'].shift(1) - df['low']), 0)
-    df['dm_minus'] = (df['low'].shift(1) - df['low']).where((df['low'].shift(1) - df['low']) > (df['high'] - df['high'].shift(1)), 0)
-    df['tr_sm'] = df['tr'].rolling(ADX_LENGTH).mean()
-    df['di_plus'] = (df['dm_plus'].rolling(ADX_LENGTH).mean() / df['tr_sm']) * 100
-    df['di_minus'] = (df['dm_minus'].rolling(ADX_LENGTH).mean() / df['tr_sm']) * 100
+    # ADX (Standard Welles Wilder - Matching TradingView)
+    df['dm_plus'] = (df['high'] - df['high'].shift(1)).where(
+        (df['high'] - df['high'].shift(1)) > (df['low'].shift(1) - df['low']), 0)
+    df['dm_minus'] = (df['low'].shift(1) - df['low']).where(
+        (df['low'].shift(1) - df['low']) > (df['high'] - df['high'].shift(1)), 0)
+    
+    # Smoothing alpha for ADX
+    alpha_adx = 1 / ADX_LENGTH
+    
+    # Smoothed TR and DM
+    df['tr_sm'] = df['tr'].ewm(alpha=alpha_adx, adjust=False).mean()
+    df['dm_plus_sm'] = df['dm_plus'].ewm(alpha=alpha_adx, adjust=False).mean()
+    df['dm_minus_sm'] = df['dm_minus'].ewm(alpha=alpha_adx, adjust=False).mean()
+    
+    # DI+ and DI-
+    df['di_plus'] = (df['dm_plus_sm'] / df['tr_sm']) * 100
+    df['di_minus'] = (df['dm_minus_sm'] / df['tr_sm']) * 100
+    
+    # DX
     df['dx'] = (abs(df['di_plus'] - df['di_minus']) / (df['di_plus'] + df['di_minus'])) * 100
-    df['adx'] = df['dx'].rolling(ADX_LENGTH).mean().fillna(0)
+    
+    # ADX (Smoothed DX)
+    df['adx'] = df['dx'].ewm(alpha=alpha_adx, adjust=False).mean().fillna(0)
     
     return df
 
