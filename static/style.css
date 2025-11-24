@@ -88,8 +88,24 @@ body {
     box-shadow: 0 6px 20px rgba(0, 0, 0, 0.4);
 }
 
-font-weight: 700;
-margin: 10px 0 0 0;
+.card-icon {
+    font-size: 32px;
+    margin-bottom: 10px;
+}
+
+.card h3 {
+    margin: 10px 0;
+    font-size: 14px;
+    opacity: 0.8;
+    font-weight: 500;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.metric-value {
+    font-size: 32px;
+    font-weight: 700;
+    margin: 10px 0 0 0;
 }
 
 .profit {
@@ -113,11 +129,37 @@ margin: 10px 0 0 0;
     border-radius: 12px;
     padding: 15px;
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+    margin-bottom: 20px;
 }
 
 .chart {
     min-height: 400px;
     border-radius: 8px;
+}
+
+/* ADX Indicator Badge */
+.adx-indicator {
+    display: inline-block;
+    padding: 6px 14px;
+    border-radius: 12px;
+    font-size: 0.95rem;
+    font-weight: 600;
+    margin-bottom: 12px;
+    background: rgba(255, 255, 255, 0.1);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    color: #c9d1d9;
+}
+
+.adx-indicator.strong {
+    background: rgba(0, 255, 136, 0.2);
+    border-color: #00ff88;
+    color: #00ff88;
+}
+
+.adx-indicator.weak {
+    background: rgba(255, 68, 68, 0.2);
+    border-color: #ff4444;
+    color: #ff4444;
 }
 
 /* Trades Section */

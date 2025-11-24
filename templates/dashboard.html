@@ -16,57 +16,6 @@
             <h1>🤖 Trading Bot Dashboard</h1>
             <p class="subtitle">Timeframe: 4h | Pares: ETH, XRP, BNB, SOL</p>
         </div>
-        <div class="status-container">
-            <span id="bot-status" class="status-badge running">● Running</span>
-            <span id="bot-mode" class="mode-badge">PAPER</span>
-        </div>
-    </div>
-
-    <!-- Metrics Cards -->
-    <div class="metrics">
-        <div class="card">
-            <div class="card-icon">💰</div>
-            <h3>Total Equity</h3>
-            <p id="total-equity" class="metric-value">$200.00</p>
-        </div>
-        <div class="card">
-            <div class="card-icon">📈</div>
-            <h3>ROI Total</h3>
-            <p id="roi" class="metric-value">0.00%</p>
-        </div>
-        <div class="card">
-            <div class="card-icon">📍</div>
-            <h3>Posiciones</h3>
-            <p id="positions" class="metric-value">0/4</p>
-        </div>
-        <div class="card">
-            <table id="trades-table">
-                <thead>
-                    <tr>
-                        <th>Timestamp</th>
-                        <th>Par</th>
-                        <th>Tipo</th>
-                        <th>Precio</th>
-                        <th>Cantidad</th>
-                        <th>Razón</th>
-                        <th>P&L</th>
-                    </tr>
-                </thead>
-                <tbody id="trades-body">
-                    <tr>
-                        <td colspan="7" style="text-align: center; opacity: 0.5;">
-                            Esperando trades...
-                        </td>
-                    </tr>
-                </tbody>
-            </table>
-        </div>
-    </div>
-
-    <!-- Footer -->
-    <div class="footer">
-        <p>Última actualización: <span id="last-update">--:--:--</span></p>
-        <p>Auto-refresh: cada 30 segundos</p>
     </div>
 
     <script src="/static/dashboard.js"></script>
