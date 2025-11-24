@@ -215,13 +215,20 @@ class DataCache:
         Returns:
             DataFrame con datos OHLCV
         """
-        if force_update or self.should_update(symbol, timeframe):
+        # Validar si el caché existe y es suficiente
+        df = self.load_from_cache(symbol, timeframe)
+        
+        # Si el caché tiene menos de 1000 velas, es probable que sea incompleto
+        # Re-descargar desde cero
+        MIN_CANDLES = 1000
+        if df is not None and len(df) < MIN_CANDLES:
+            print(f"⚠️ Caché de {symbol} tiene solo {len(df)} velas (mínimo {MIN_CANDLES})")
+            print(f"   Re-descargando histórico completo...")
+            df = None  # Forzar re-descarga
+        
+        if force_update or df is None or self.should_update(symbol, timeframe):
             return self.update_cache(symbol, timeframe)
         else:
-            df = self.load_from_cache(symbol, timeframe)
-            if df is None:
-                # Si no hay caché, forzar descarga
-                return self.update_cache(symbol, timeframe)
             return df
     
     def should_update(self, symbol, timeframe='4h'):
