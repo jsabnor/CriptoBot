@@ -94,6 +94,25 @@ El bot puede enviarte notificaciones en tiempo real de todas las operaciones:
 
 📚 Ver [TELEGRAM.md](TELEGRAM.md) para configurar notificaciones
 
+## 📊 Dashboard Web
+
+Interfaz web para monitorear el bot con gráficos interactivos:
+
+- 📈 **Gráficos de velas** con indicadores (MA50, MA200)
+- 🟢🔴 **Marcadores de compra/venta** en los gráficos
+- 💰 **Métricas en tiempo real** (equity, ROI, posiciones)
+- 📋 **Historial de trades** con P&L
+
+```bash
+# Iniciar dashboard
+sudo systemctl start dashboard
+
+# Acceder desde navegador
+http://IP_VPS:5000
+```
+
+📚 Ver [DASHBOARD.md](DASHBOARD.md) para configuración completa
+
 ## ⚠️ Importante
 
 - ✅ Empezar con **paper trading** (no usa dinero real)

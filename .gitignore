@@ -32,6 +32,40 @@ env/
 # OS
 .DS_Store
 Thumbs.db
+# Environment variables (.env)
+.env
+
+# Bot state and logs
+bot_state.json
+trades_production.csv
+*.log
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+.venv/
+venv/
+ENV/
+env/
+
+# Data files
+*.csv
+*.pkl
+*.pickle
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
 
 # Backups
 *.bak
@@ -41,3 +75,8 @@ Thumbs.db
 # Update backups (created by update.sh)
 CriptoBot_backup_*/
 
+# Flask
+__pycache__/
+*.pyc
+.flask_session/
+instance//

@@ -1,0 +1,17 @@
+[Unit]
+Description=Trading Bot Dashboard (Web Interface)
+After=network.target bot.service
+Wants=bot.service
+
+[Service]
+Type=simple
+User=j0s3m4
+WorkingDirectory=/home/j0s3m4/CriptoBot
+Environment="FLASK_APP=dashboard.py"
+Environment="FLASK_ENV=production"
+ExecStart=/home/j0s3m4/CriptoBot/.venv/bin/python /home/j0s3m4/CriptoBot/dashboard.py
+Restart=on-failure
+RestartSec=10
+
+[Install]
+WantedBy=multi-user.target
