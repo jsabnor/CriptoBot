@@ -41,6 +41,8 @@ class DataCache:
         
         for i in range(num_requests):
             try:
+                print(f"  🔄 Request {i+1}/{num_requests}...", end=' ')
+                
                 ohlcv = self.exchange.fetch_ohlcv(
                     symbol, 
                     timeframe, 
@@ -49,25 +51,41 @@ class DataCache:
                 )
                 
                 if not ohlcv:
+                    print("❌ Sin datos")
                     break
                 
+                # Validar que recibimos datos
+                received = len(ohlcv)
+                print(f"✓ {received} velas")
+                
                 all_data.extend(ohlcv)
-                print(f"  ✓ Bloque {i+1}/{num_requests}: {len(ohlcv)} velas")
                 
                 # Siguiente bloque desde la última vela + 1ms
                 since = ohlcv[-1][0] + 1
                 
                 # Si recibimos menos de 1000, no hay más datos
-                if len(ohlcv) < candles_per_request:
-                    print(f"  ℹ No hay más datos históricos disponibles")
+                if received < candles_per_request:
+                    print(f"  ℹ️  No hay más datos históricos disponibles")
                     break
                 
-                # Rate limiting
-                time.sleep(0.5)
+                # Rate limiting - MUY IMPORTANTE
+                # Binance weight limit: 1200/min
+                # Esperamos 2 segundos entre requests para estar seguros
+                if i < num_requests - 1:  # No esperar después del último
+                    print(f"  ⏳ Esperando 2s (rate limit)...")
+                    time.sleep(2)
                 
             except Exception as e:
-                print(f"  ⚠️ Error en bloque {i+1}: {e}")
-                break
+                print(f"\n  ⚠️  Error en request {i+1}: {e}")
+                
+                # Si es rate limit, esperar más
+                if "rate limit" in str(e).lower() or "429" in str(e):
+                    print(f"  ⏸️  Rate limit detectado, esperando 10s...")
+                    time.sleep(10)
+                    # Reintentar este request
+                    continue
+                else:
+                    break
         
         if not all_data:
             print(f"  ❌ No se pudieron descargar datos para {symbol}")
@@ -86,7 +104,13 @@ class DataCache:
         df = df.drop_duplicates(subset=['timestamp'])
         df = df.sort_values('timestamp').reset_index(drop=True)
         
+        # Mostrar rango de fechas
+        first_date = df['timestamp'].iloc[0].strftime('%Y-%m-%d')
+        last_date = df['timestamp'].iloc[-1].strftime('%Y-%m-%d')
+        
         print(f"✓ Descargadas {len(df)} velas de {symbol}")
+        print(f"  📅 Desde {first_date} hasta {last_date}")
+        
         return df
     
     def save_to_cache(self, symbol, df, timeframe='4h'):
