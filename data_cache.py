@@ -80,8 +80,8 @@ class DataCache:
                     break
                 
                 # Rate limiting - 2.5 segundos para estar muy seguros
-                print(f"  ⏳ Esperando 2.5s...")
-                time.sleep(2.5)
+                print(f"  ⏳ Esperando 0.6s...")
+                time.sleep(0.6)
                 
             except Exception as e:
                 print(f"\n  ⚠️  Error en request {request_count}: {e}")

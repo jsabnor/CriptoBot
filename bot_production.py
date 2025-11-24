@@ -12,6 +12,8 @@ from data_cache import DataCache
 # Cargar variables de entorno desde archivo .env
 load_dotenv()
 
+import config
+
 # ============================================================================
 # BOT v1.0 PRODUCTION - OPTIMIZADO PARA 4H
 # ============================================================================
@@ -23,16 +25,13 @@ load_dotenv()
 # ============================================================================
 
 class TradingBot:
-    def __init__(self, mode='paper'):
+    def __init__(self, mode=None):
         """
         Inicializa el bot de trading.
-        
-        Args:
-            mode: 'paper' para simular, 'live' para real
         """
-        # Cargar configuración desde variables de entorno
-        self.API_KEY = os.getenv('BINANCE_API_KEY')
-        self.API_SECRET = os.getenv('BINANCE_API_SECRET')
+        # Cargar credenciales desde config
+        self.API_KEY = config.API_KEY
+        self.API_SECRET = config.API_SECRET
         
         # Validar que las claves existan
         if not self.API_KEY or not self.API_SECRET:
@@ -45,43 +44,29 @@ class TradingBot:
             )
         
         # Configuración de Trading
-        # Permitir override desde variables de entorno
-        self.MODE = os.getenv('TRADING_MODE', mode).lower()
+        self.MODE = mode if mode else config.TRADING_MODE
         if self.MODE not in ['paper', 'live']:
             raise ValueError("MODE debe ser 'paper' o 'live'")
             
-        self.TIMEFRAME = '4h'  # Optimizado según backtesting
-        
-        # Pares optimizados (Top 4 del backtesting en 4h)
-        self.SYMBOLS = [
-            'ETH/USDT',   # +91.4% ROI
-            'XRP/USDT',   # +86.9% ROI
-            'BNB/USDT',   # +82.4% ROI
-            'SOL/USDT',   # +75.6% ROI
-        ]
-        
-        # Capital por par (cargar desde .env o usar default)
-        try:
-            self.CAPITAL_PER_PAIR = float(os.getenv('CAPITAL_PER_PAIR', '50.0'))
-        except ValueError:
-            self.CAPITAL_PER_PAIR = 50.0
-            
+        self.TIMEFRAME = config.TIMEFRAME
+        self.SYMBOLS = config.SYMBOLS
+        self.CAPITAL_PER_PAIR = config.CAPITAL_PER_PAIR
         self.TOTAL_CAPITAL = self.CAPITAL_PER_PAIR * len(self.SYMBOLS)
         
-        # Parámetros de Riesgo (v1.0 probados)
-        self.COMMISSION = 0.001
-        self.RISK_PERCENT = 0.02
-        self.MIN_EQUITY = 10.0
-        self.MAX_TRADES_PER_DAY = 2
+        # Parámetros de Riesgo
+        self.COMMISSION = config.COMMISSION
+        self.RISK_PERCENT = config.RISK_PERCENT
+        self.MIN_EQUITY = config.MIN_EQUITY
+        self.MAX_TRADES_PER_DAY = config.MAX_TRADES_PER_DAY
         
-        # Indicadores (v1.0)
-        self.ATR_LENGTH = 14
-        self.ATR_MULTIPLIER = 3.5
-        self.MA_LENGTH = 50
-        self.LONG_MA_LENGTH = 200
-        self.ADX_LENGTH = 14
-        self.ADX_THRESHOLD = 25
-        self.TRAILING_TP_PERCENT = 0.60
+        # Indicadores
+        self.ATR_LENGTH = config.ATR_LENGTH
+        self.ATR_MULTIPLIER = config.ATR_MULTIPLIER
+        self.MA_LENGTH = config.MA_LENGTH
+        self.LONG_MA_LENGTH = config.LONG_MA_LENGTH
+        self.ADX_LENGTH = config.ADX_LENGTH
+        self.ADX_THRESHOLD = config.ADX_THRESHOLD
+        self.TRAILING_TP_PERCENT = config.TRAILING_TP_PERCENT
         
         # Estado del bot
         self.positions = {}  # {symbol: {size, entry_price, sl_price, max_price}}

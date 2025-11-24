@@ -16,25 +16,15 @@ import json
 # ============================================================================
 
 # Configuración
-from dotenv import load_dotenv
-
-# Cargar variables de entorno
-load_dotenv()
+# Configuración
+import config
 
 # Configuración
-API_KEY = os.getenv('BINANCE_API_KEY')
-API_SECRET = os.getenv('BINANCE_API_SECRET')
+API_KEY = config.API_KEY
+API_SECRET = config.API_SECRET
 
 # Pares a testear (top volumen en Binance)
-SYMBOLS = [
-    'BTC/USDT',
-    'ETH/USDT',
-    'BNB/USDT',
-    'XRP/USDT',
-    'SOL/USDT',
-    'DOGE/USDT',
-    'ADA/USDT'
-]
+SYMBOLS = config.SYMBOLS
 
 # Timeframes a testear
 TIMEFRAMES = ['1h', '4h', '1d']
@@ -44,20 +34,20 @@ START_DATE = '2020-01-01'
 END_DATE = '2025-01-01'
 
 INITIAL_CAPITAL = 200.0
-COMMISSION = 0.001
+COMMISSION = config.COMMISSION
 
-# Parámetros v1.0
-RISK_PERCENT = 0.02
-MIN_EQUITY = 10.0
-MAX_TRADES_PER_DAY = 2
+# Parámetros v1.0 (Desde config.py)
+RISK_PERCENT = config.RISK_PERCENT
+MIN_EQUITY = config.MIN_EQUITY
+MAX_TRADES_PER_DAY = config.MAX_TRADES_PER_DAY
 
-ATR_LENGTH = 14
-ATR_MULTIPLIER = 3.5
-MA_LENGTH = 50
-LONG_MA_LENGTH = 200
-ADX_LENGTH = 14
-ADX_THRESHOLD = 25
-TRAILING_TP_PERCENT = 0.60
+ATR_LENGTH = config.ATR_LENGTH
+ATR_MULTIPLIER = config.ATR_MULTIPLIER
+MA_LENGTH = config.MA_LENGTH
+LONG_MA_LENGTH = config.LONG_MA_LENGTH
+ADX_LENGTH = config.ADX_LENGTH
+ADX_THRESHOLD = config.ADX_THRESHOLD
+TRAILING_TP_PERCENT = config.TRAILING_TP_PERCENT
 
 exchange = ccxt.binance({
     'apiKey': API_KEY,
@@ -110,9 +100,15 @@ def fetch_ohlcv_range(symbol, timeframe, since, until, max_retries=3):
     return df
 
 
-def calculate_indicators(df):
+def calculate_indicators(df, config=None):
     """Calcula todos los indicadores necesarios para v1.0."""
     df = df.copy()
+    
+    # Configuración por defecto
+    atr_length = config.get('ATR_LENGTH', ATR_LENGTH) if config else ATR_LENGTH
+    ma_length = config.get('MA_LENGTH', MA_LENGTH) if config else MA_LENGTH
+    long_ma_length = config.get('LONG_MA_LENGTH', LONG_MA_LENGTH) if config else LONG_MA_LENGTH
+    adx_length = config.get('ADX_LENGTH', ADX_LENGTH) if config else ADX_LENGTH
     
     # ATR
     df['prev_close'] = df['close'].shift(1)
@@ -123,12 +119,12 @@ def calculate_indicators(df):
     ], axis=1).max(axis=1)
     
     # ATR (Wilder's Smoothing)
-    alpha = 1 / ATR_LENGTH
+    alpha = 1 / atr_length
     df['atr'] = df['tr'].ewm(alpha=alpha, adjust=False).mean().fillna(0)
     
     # Moving Averages
-    df['ma'] = df['close'].rolling(window=MA_LENGTH).mean().fillna(0)
-    df['long_ma'] = df['close'].rolling(window=LONG_MA_LENGTH).mean().fillna(0)
+    df['ma'] = df['close'].rolling(window=ma_length).mean().fillna(0)
+    df['long_ma'] = df['close'].rolling(window=long_ma_length).mean().fillna(0)
     
     # ADX (Standard Welles Wilder - Matching TradingView)
     df['dm_plus'] = (df['high'] - df['high'].shift(1)).where(
@@ -137,7 +133,7 @@ def calculate_indicators(df):
         (df['low'].shift(1) - df['low']) > (df['high'] - df['high'].shift(1)), 0)
     
     # Smoothing alpha for ADX
-    alpha_adx = 1 / ADX_LENGTH
+    alpha_adx = 1 / adx_length
     
     # Smoothed TR and DM
     df['tr_sm'] = df['tr'].ewm(alpha=alpha_adx, adjust=False).mean()
@@ -157,9 +153,20 @@ def calculate_indicators(df):
     return df
 
 
-def simulate_v1_0(df, initial_capital):
-    """Simula la estrategia v1.0."""
-    if len(df) < LONG_MA_LENGTH:
+def simulate_v1_0(df, initial_capital, config=None):
+    """Simula la estrategia v1.0 con configuración opcional."""
+    
+    # Configuración por defecto
+    long_ma_length = config.get('LONG_MA_LENGTH', LONG_MA_LENGTH) if config else LONG_MA_LENGTH
+    trailing_tp_percent = config.get('TRAILING_TP_PERCENT', TRAILING_TP_PERCENT) if config else TRAILING_TP_PERCENT
+    atr_multiplier = config.get('ATR_MULTIPLIER', ATR_MULTIPLIER) if config else ATR_MULTIPLIER
+    risk_percent = config.get('RISK_PERCENT', RISK_PERCENT) if config else RISK_PERCENT
+    min_equity = config.get('MIN_EQUITY', MIN_EQUITY) if config else MIN_EQUITY
+    max_trades_per_day = config.get('MAX_TRADES_PER_DAY', MAX_TRADES_PER_DAY) if config else MAX_TRADES_PER_DAY
+    adx_threshold = config.get('ADX_THRESHOLD', ADX_THRESHOLD) if config else ADX_THRESHOLD
+    commission = config.get('COMMISSION', COMMISSION) if config else COMMISSION
+    
+    if len(df) < long_ma_length:
         return {
             'final_equity': initial_capital,
             'total_return': 0,
@@ -172,7 +179,7 @@ def simulate_v1_0(df, initial_capital):
             'error': 'Insufficient data'
         }
     
-    df = calculate_indicators(df)
+    df = calculate_indicators(df, config)
     
     equity = initial_capital
     position_size = 0.0
@@ -184,7 +191,7 @@ def simulate_v1_0(df, initial_capital):
     equity_curve = []
     trades_today = {}
     
-    for i in range(LONG_MA_LENGTH + 1, len(df)):
+    for i in range(long_ma_length + 1, len(df)):
         close_prev = df['close'].iloc[i-1]
         close = df['close'].iloc[i]
         open_price = df['open'].iloc[i]
@@ -200,11 +207,11 @@ def simulate_v1_0(df, initial_capital):
         # Gestión de salidas
         if in_position:
             max_price = max(max_price, high)
-            tp_price = max_price * (1 - TRAILING_TP_PERCENT)
+            tp_price = max_price * (1 - trailing_tp_percent)
             
             # Trailing TP
             if low <= tp_price:
-                proceeds = position_size * tp_price * (1 - COMMISSION)
+                proceeds = position_size * tp_price * (1 - commission)
                 pnl = proceeds - (position_size * entry_price)
                 equity += proceeds
                 trades.append({'pnl': pnl})
@@ -214,7 +221,7 @@ def simulate_v1_0(df, initial_capital):
             
             # Trailing SL MA
             if close < ma:
-                proceeds = position_size * close * (1 - COMMISSION)
+                proceeds = position_size * close * (1 - commission)
                 pnl = proceeds - (position_size * entry_price)
                 equity += proceeds
                 trades.append({'pnl': pnl})
@@ -223,10 +230,10 @@ def simulate_v1_0(df, initial_capital):
                 continue
             
             # SL ATR
-            new_sl = close - atr * ATR_MULTIPLIER
+            new_sl = close - atr * atr_multiplier
             sl_price = max(sl_price, new_sl)
             if low <= sl_price:
-                proceeds = position_size * sl_price * (1 - COMMISSION)
+                proceeds = position_size * sl_price * (1 - commission)
                 pnl = proceeds - (position_size * entry_price)
                 equity += proceeds
                 trades.append({'pnl': pnl})
@@ -236,28 +243,29 @@ def simulate_v1_0(df, initial_capital):
             
             # Bearish exit
             if close < open_price and close < long_ma:
-                proceeds = position_size * close * (1 - COMMISSION)
+                proceeds = position_size * close * (1 - commission)
                 pnl = proceeds - (position_size * entry_price)
                 equity += proceeds
                 trades.append({'pnl': pnl})
                 position_size = 0.0
                 in_position = False
+                continue
         
         # Gestión de entradas
-        if not in_position and equity >= MIN_EQUITY:
+        if not in_position and equity >= min_equity:
             if date_key not in trades_today:
                 trades_today[date_key] = 0
             
-            if trades_today[date_key] < MAX_TRADES_PER_DAY:
+            if trades_today[date_key] < max_trades_per_day:
                 # Estrategia v1.0: Trend
                 enter_cond = (close > close_prev and close > ma and 
-                             adx > ADX_THRESHOLD and 
+                             adx > adx_threshold and 
                              (close > long_ma if long_ma > 0 else True))
                 
                 if enter_cond and atr > 0:
-                    risk_amount = equity * RISK_PERCENT
-                    stop_distance = atr * ATR_MULTIPLIER
-                    qty = (risk_amount / stop_distance) * (1 - COMMISSION)
+                    risk_amount = equity * risk_percent
+                    stop_distance = atr * atr_multiplier
+                    qty = (risk_amount / stop_distance) * (1 - commission)
                     max_qty = (equity * 0.20) / close
                     qty = min(qty, max_qty)
                     
@@ -267,7 +275,7 @@ def simulate_v1_0(df, initial_capital):
                             equity -= cost
                             position_size = qty
                             entry_price = close
-                            sl_price = close - atr * ATR_MULTIPLIER
+                            sl_price = close - atr * atr_multiplier
                             max_price = high
                             in_position = True
                             trades_today[date_key] += 1
@@ -278,7 +286,7 @@ def simulate_v1_0(df, initial_capital):
     # Cerrar posición final
     if in_position:
         final_close = df['close'].iloc[-1]
-        proceeds = position_size * final_close * (1 - COMMISSION)
+        proceeds = position_size * final_close * (1 - commission)
         pnl = proceeds - (position_size * entry_price)
         equity += proceeds
         trades.append({'pnl': pnl})
