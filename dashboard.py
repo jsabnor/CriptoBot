@@ -5,6 +5,7 @@ import numpy as np
 import ccxt
 from datetime import datetime
 import os
+from data_cache import DataCache
 
 app = Flask(__name__)
 
@@ -13,6 +14,9 @@ SYMBOLS = ['ETH/USDT', 'XRP/USDT', 'BNB/USDT', 'SOL/USDT']
 ATR_LENGTH = 14
 MA_LENGTH = 50
 LONG_MA_LENGTH = 200
+
+# Data cache
+data_cache = DataCache()
 
 
 def calculate_indicators(df):
@@ -106,20 +110,19 @@ def api_trades():
 def api_chart(symbol):
     """Datos para gráfico de velas con indicadores y marcadores de trades"""
     try:
-        # Fetch OHLCV data from Binance
-        exchange = ccxt.binance({'enableRateLimit': True})
         symbol_full = f"{symbol}/USDT"
         
-        ohlcv = exchange.fetch_ohlcv(symbol_full, '4h', limit=200)
+        # Usar caché en lugar de API directa
+        df = data_cache.get_data(symbol_full, '4h')
         
-        # Convertir a DataFrame
-        df = pd.DataFrame(ohlcv, columns=['timestamp', 'open', 'high', 'low', 'close', 'volume'])
-        df['timestamp'] = pd.to_datetime(df['timestamp'], unit='ms')
+        if df is None or len(df) == 0:
+            return jsonify({'error': 'No data available'}), 404
+        
+        # Limitar a últimas 500 velas para el gráfico
+        df = df.tail(500)
         
         # Calcular indicadores
         df = calculate_indicators(df)
-        
-        # Eliminar NaN para evitar problemas en el frontend
         df = df.fillna(0)
         
         # Obtener trades de este símbolo

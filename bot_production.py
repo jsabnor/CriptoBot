@@ -7,6 +7,7 @@ from datetime import datetime
 import json
 from dotenv import load_dotenv
 from telegram_notifier import TelegramNotifier
+from data_cache import DataCache
 
 # Cargar variables de entorno desde archivo .env
 load_dotenv()
@@ -103,6 +104,10 @@ class TradingBot:
         # Telegram notifier
         self.telegram = TelegramNotifier()
         
+        # Data cache para históricos
+        self.data_cache = DataCache()
+        
+        # Imprimir configuración
         print(f"\n{'='*70}")
         print(f"BOT v1.0 PRODUCTION - MODO: {self.MODE.upper()}")
         print(f"{'='*70}")
@@ -112,21 +117,42 @@ class TradingBot:
             print(f"  {i}. {symbol} (Capital: {self.CAPITAL_PER_PAIR} EUR)")
         print(f"Capital Total: {self.TOTAL_CAPITAL} EUR")
         print(f"Telegram: {'✓ Habilitado' if self.telegram.enabled else '✗ Deshabilitado'}")
+        print(f"Caché de datos: ✓ Activo")
         print(f"{'='*70}\n")
         
         # Notificar inicio por Telegram
         if self.telegram.enabled:
             self.telegram.notify_startup(self.MODE, self.SYMBOLS, self.TOTAL_CAPITAL)
     
-    def fetch_ohlcv(self, symbol, limit=300):
-        """Descarga datos OHLCV recientes."""
+    def fetch_ohlcv(self, symbol, limit=None):
+        """Descarga datos OHLCV desde caché (con fallback a API)."""
+        try:
+            # Usar caché primero
+            df = self.data_cache.get_data(symbol, self.TIMEFRAME)
+            
+            if df is None or len(df) < self.LONG_MA_LENGTH + 1:
+                print(f"⚠️ Caché insuficiente para {symbol}, usando API...")
+                return self._fetch_ohlcv_api(symbol, limit or 500)
+            
+            # Opcional: limitar a últimas N velas
+            if limit:
+                df = df.tail(limit)
+            
+            return df
+            
+        except Exception as e:
+            print(f"❌ Error en caché {symbol}: {e}")
+            return self._fetch_ohlcv_api(symbol, limit or 500)
+    
+    def _fetch_ohlcv_api(self, symbol, limit):
+        """Fallback: fetch directo desde Binance API."""
         try:
             ohlcv = self.exchange.fetch_ohlcv(symbol, self.TIMEFRAME, limit=limit)
             df = pd.DataFrame(ohlcv, columns=['timestamp', 'open', 'high', 'low', 'close', 'volume'])
             df['timestamp'] = pd.to_datetime(df['timestamp'], unit='ms')
             return df
         except Exception as e:
-            print(f"Error descargando {symbol}: {e}")
+            print(f"❌ Error API {symbol}: {e}")
             return None
     
     def calculate_indicators(self, df):
