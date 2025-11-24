@@ -346,17 +346,30 @@ def run_multi_test():
     print(f"Pares: {len(SYMBOLS)} | Timeframes: {len(TIMEFRAMES)} | Total: {total_tests} tests")
     print(f"{'='*80}\n")
     
+    # Inicializar caché
+    from data_cache import DataCache
+    cache = DataCache()
+    
     for symbol in SYMBOLS:
         for timeframe in TIMEFRAMES:
             current_test += 1
             print(f"[{current_test}/{total_tests}] Testing {symbol} {timeframe}...", end=' ')
             
             try:
-                # Descargar datos
-                df = fetch_ohlcv_range(symbol, timeframe, START_DATE, END_DATE)
+                # Obtener datos del caché
+                # force_update=False para usar lo que ya tenemos
+                df = cache.get_data(symbol, timeframe, force_update=False)
+                
+                if df is None or len(df) == 0:
+                     print(f"❌ No data available")
+                     continue
+
+                # Filtrar por fecha
+                df = df[(df['timestamp'] >= pd.to_datetime(START_DATE)) & 
+                        (df['timestamp'] < pd.to_datetime(END_DATE))]
                 
                 if len(df) < LONG_MA_LENGTH:
-                    print(f"❌ Datos insuficientes")
+                    print(f"❌ Datos insuficientes ({len(df)} velas)")
                     results.append({
                         'symbol': symbol,
                         'timeframe': timeframe,
