@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="es">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -7,6 +8,7 @@
     <script src="https://cdn.plot.ly/plotly-2.27.0.min.js"></script>
     <link rel="stylesheet" href="/static/style.css">
 </head>
+
 <body>
     <!-- Header -->
     <div class="header">
@@ -38,32 +40,6 @@
             <p id="positions" class="metric-value">0/4</p>
         </div>
         <div class="card">
-            <div class="card-icon">📊</div>
-            <h3>Total Trades</h3>
-            <p id="total-trades" class="metric-value">0</p>
-        </div>
-    </div>
-
-    <!-- Charts Grid -->
-    <div class="charts-grid">
-        <div class="chart-container">
-            <div id="chart-eth" class="chart"></div>
-        </div>
-        <div class="chart-container">
-            <div id="chart-xrp" class="chart"></div>
-        </div>
-        <div class="chart-container">
-            <div id="chart-bnb" class="chart"></div>
-        </div>
-        <div class="chart-container">
-            <div id="chart-sol" class="chart"></div>
-        </div>
-    </div>
-
-    <!-- Trades Table -->
-    <div class="trades-section">
-        <h2>📋 Trades Recientes</h2>
-        <div class="table-container">
             <table id="trades-table">
                 <thead>
                     <tr>
@@ -95,4 +71,5 @@
 
     <script src="/static/dashboard.js"></script>
 </body>
+
 </html>
