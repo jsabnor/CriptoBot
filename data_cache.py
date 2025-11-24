@@ -218,9 +218,9 @@ class DataCache:
         # Validar si el caché existe y es suficiente
         df = self.load_from_cache(symbol, timeframe)
         
-        # Si el caché tiene menos de 1000 velas, es probable que sea incompleto
+        # Si el caché tiene menos de 5000 velas, es probable que sea incompleto
         # Re-descargar desde cero
-        MIN_CANDLES = 1000
+        MIN_CANDLES = 5000
         if df is not None and len(df) < MIN_CANDLES:
             print(f"⚠️ Caché de {symbol} tiene solo {len(df)} velas (mínimo {MIN_CANDLES})")
             print(f"   Re-descargando histórico completo...")
