@@ -174,29 +174,37 @@ class TradingBot:
             (df['low'] - df['prev_close']).abs()
         ], axis=1).max(axis=1)
         
-        atr = [float('nan')] * len(df)
-        for i in range(self.ATR_LENGTH, len(df)):
-            if i == self.ATR_LENGTH:
-                atr[i] = df['tr'].iloc[i-self.ATR_LENGTH+1:i+1].mean()
-            else:
-                atr[i] = (atr[i-1] * (self.ATR_LENGTH - 1) + df['tr'].iloc[i]) / self.ATR_LENGTH
-        df['atr'] = atr
-        df['atr'] = df['atr'].fillna(0)
+        # ATR (Wilder's Smoothing)
+        alpha = 1 / self.ATR_LENGTH
+        df['atr'] = df['tr'].ewm(alpha=alpha, adjust=False).mean().fillna(0)
         
         # Moving Averages
         df['ma'] = df['close'].rolling(window=self.MA_LENGTH).mean().fillna(0)
         df['long_ma'] = df['close'].rolling(window=self.LONG_MA_LENGTH).mean().fillna(0)
         
-        # ADX
+        # ADX (Standard Welles Wilder - Matching TradingView)
         df['dm_plus'] = (df['high'] - df['high'].shift(1)).where(
             (df['high'] - df['high'].shift(1)) > (df['low'].shift(1) - df['low']), 0)
         df['dm_minus'] = (df['low'].shift(1) - df['low']).where(
             (df['low'].shift(1) - df['low']) > (df['high'] - df['high'].shift(1)), 0)
-        df['tr_sm'] = df['tr'].rolling(self.ADX_LENGTH).mean()
-        df['di_plus'] = (df['dm_plus'].rolling(self.ADX_LENGTH).mean() / df['tr_sm']) * 100
-        df['di_minus'] = (df['dm_minus'].rolling(self.ADX_LENGTH).mean() / df['tr_sm']) * 100
+        
+        # Smoothing alpha for ADX
+        alpha_adx = 1 / self.ADX_LENGTH
+        
+        # Smoothed TR and DM
+        df['tr_sm'] = df['tr'].ewm(alpha=alpha_adx, adjust=False).mean()
+        df['dm_plus_sm'] = df['dm_plus'].ewm(alpha=alpha_adx, adjust=False).mean()
+        df['dm_minus_sm'] = df['dm_minus'].ewm(alpha=alpha_adx, adjust=False).mean()
+        
+        # DI+ and DI-
+        df['di_plus'] = (df['dm_plus_sm'] / df['tr_sm']) * 100
+        df['di_minus'] = (df['dm_minus_sm'] / df['tr_sm']) * 100
+        
+        # DX
         df['dx'] = (abs(df['di_plus'] - df['di_minus']) / (df['di_plus'] + df['di_minus'])) * 100
-        df['adx'] = df['dx'].rolling(self.ADX_LENGTH).mean().fillna(0)
+        
+        # ADX (Smoothed DX)
+        df['adx'] = df['dx'].ewm(alpha=alpha_adx, adjust=False).mean().fillna(0)
         
         return df
     

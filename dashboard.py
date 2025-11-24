@@ -38,22 +38,31 @@ def calculate_indicators(df):
     df['ma'] = df['close'].rolling(window=MA_LENGTH).mean()
     df['long_ma'] = df['close'].rolling(window=LONG_MA_LENGTH).mean()
     
-    # ADX (Standard Welles Wilder)
+    # ADX (Standard Welles Wilder - Matching TradingView)
+    # TradingView uses RMA (Wilder's Smoothing) which is equivalent to EMA with alpha=1/length
+    
     df['dm_plus'] = (df['high'] - df['high'].shift(1)).where(
         (df['high'] - df['high'].shift(1)) > (df['low'].shift(1) - df['low']), 0)
     df['dm_minus'] = (df['low'].shift(1) - df['low']).where(
         (df['low'].shift(1) - df['low']) > (df['high'] - df['high'].shift(1)), 0)
     
-    # TR smoothed for ADX
-    df['tr_sm'] = df['tr'].rolling(14).mean() # Using simple rolling for dashboard responsiveness
+    # TR smoothed for ADX (RMA)
+    # alpha = 1 / length
+    alpha = 1 / 14
+    df['tr_sm'] = df['tr'].ewm(alpha=alpha, adjust=False).mean()
     
-    # Directional Indicators
-    df['di_plus'] = (df['dm_plus'].rolling(14).mean() / df['tr_sm']) * 100
-    df['di_minus'] = (df['dm_minus'].rolling(14).mean() / df['tr_sm']) * 100
+    # Directional Indicators (smoothed with RMA)
+    df['dm_plus_sm'] = df['dm_plus'].ewm(alpha=alpha, adjust=False).mean()
+    df['dm_minus_sm'] = df['dm_minus'].ewm(alpha=alpha, adjust=False).mean()
     
-    # DX and ADX
+    df['di_plus'] = (df['dm_plus_sm'] / df['tr_sm']) * 100
+    df['di_minus'] = (df['dm_minus_sm'] / df['tr_sm']) * 100
+    
+    # DX
     df['dx'] = (abs(df['di_plus'] - df['di_minus']) / (df['di_plus'] + df['di_minus'])) * 100
-    df['adx'] = df['dx'].rolling(window=14).mean()
+    
+    # ADX (smoothed DX with RMA)
+    df['adx'] = df['dx'].ewm(alpha=alpha, adjust=False).mean()
     
     return df
 
