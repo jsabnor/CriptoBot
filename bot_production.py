@@ -108,7 +108,7 @@ class TradingBot:
         # NUEVO: Precargar caché de datos al inicio
         print("📊 Inicializando caché de datos históricos...")
         for symbol in self.SYMBOLS:
-            # get_data solo actualiza si es necesario (>4h), sino carga desde disco
+            # get_data actualiza si han pasado >5min, sino carga desde disco
             self.data_cache.get_data(symbol, self.TIMEFRAME)
         print("✅ Caché inicializado correctamente\n")
         

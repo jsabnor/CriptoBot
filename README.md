@@ -84,6 +84,31 @@ Mantén el bot actualizado con las últimas mejoras:
 
 📚 Ver [UPDATE.md](UPDATE.md) para más detalles
 
+## 💾 Sistema de Caché
+
+El bot utiliza un sistema de caché inteligente para optimizar llamadas a la API de Binance:
+
+**Características:**
+- 📊 **Velas históricas**: Actualizadas cada 5 minutos
+- ⚡ **Vela actual**: Obtenida en tiempo real (cada 30s en dashboard)
+- 💿 **Almacenamiento**: Archivos CSV en directorio `data/`
+- 🎯 **Uso de API**: <0.2% del límite de Binance (totalmente seguro)
+
+**Actualización manual:**
+```bash
+# Forzar actualización de un par específico
+python -c "from data_cache import DataCache; DataCache().get_data('ETH/USDT', '4h', force_update=True)"
+
+# Actualizar todos los pares
+python data_cache.py
+```
+
+**Beneficios:**
+- ✅ Dashboard siempre actualizado (máximo 5 min de retraso)
+- ✅ Sincronización automática de todos los pares
+- ✅ Sin riesgo de rate limiting
+- ✅ Carga rápida desde archivos locales
+
 ## 📱 Notificaciones por Telegram
 
 El bot puede enviarte notificaciones en tiempo real de todas las operaciones:
@@ -96,18 +121,28 @@ El bot puede enviarte notificaciones en tiempo real de todas las operaciones:
 
 ## 📊 Dashboard Web
 
-Interfaz web para monitorear el bot con gráficos interactivos:
+Interfaz web para monitorear el bot con gráficos interactivos en tiempo real:
 
-- 📈 **Gráficos de velas** con indicadores (MA50, MA200)
+- 📈 **Gráficos de velas en tiempo real** con vela actual en progreso
+- 📊 **Indicadores técnicos**: ADX, MA50, MA200
 - 🟢🔴 **Marcadores de compra/venta** en los gráficos
 - 💰 **Métricas en tiempo real** (equity, ROI, posiciones)
 - 📋 **Historial de trades** con P&L
+- 🔄 **Auto-refresh**: Actualización cada 30 segundos
+
+**Características v1.7.0:**
+- ✨ **Vela actual visible**: Muestra la vela en progreso con estilo semi-transparente
+- ⚡ **Datos frescos**: Caché actualizado cada 5 minutos
+- 🎨 **Diferenciación visual**: Vela actual con borde punteado y opacidad 70%
 
 ```bash
 # Iniciar dashboard
-sudo systemctl start dashboard
+python dashboard.py
 
-# Acceder desde navegador
+# Acceder desde navegador local
+http://localhost:5000
+
+# O desde VPS
 http://IP_VPS:5000
 ```
 

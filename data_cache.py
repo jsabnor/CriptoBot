@@ -243,7 +243,7 @@ class DataCache:
         Actualiza si:
         - No existe el archivo de última actualización
         - No hay registro para este símbolo
-        - Han pasado más de 4 horas desde última actualización
+        - Han pasado más de 5 minutos desde última actualización
         """
         if not self.last_update_file.exists():
             return True
@@ -262,9 +262,9 @@ class DataCache:
             last_dt = datetime.fromisoformat(last_update)
             now = datetime.now()
             
-            # Actualizar si pasaron más de 4 horas
-            hours_diff = (now - last_dt).total_seconds() / 3600
-            return hours_diff >= 4
+            # Actualizar si pasaron más de 5 minutos
+            minutes_diff = (now - last_dt).total_seconds() / 60
+            return minutes_diff >= 5
         except:
             return True
     
