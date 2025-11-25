@@ -35,114 +35,47 @@
         </button>
         <button class="tab" data-view="comparison">
             ⚖️ Comparación
-        </button>
-    </div>
+            <!-- EMA Metrics -->
+            <div class="metrics">
+                <div class="card ema-card">
+                    <div class="card-icon">💰</div>
+                    <h3>Equity EMA</h3>
+                    <p id="ema-equity" class="metric-value">$100.00</p>
+                </div>
+                <div class="card ema-card">
+                    <div class="card-icon">📈</div>
+                    <h3>ROI EMA</h3>
+                    <p id="ema-roi" class="metric-value">0.00%</p>
+                </div>
+                <div class="card ema-card">
+                    <div class="card-icon">📍</div>
+                    <h3>Posiciones</h3>
+                    <p id="ema-positions" class="metric-value">0/4</p>
+                </div>
+                <div class="card ema-card">
+                    <div class="card-icon">📊</div>
+                    <h3>Estrategia</h3>
+                    <p class="metric-value" style="font-size: 1.2rem;">EMA 15/30</p>
+                </div>
+            </div>
 
-    <!-- ============================================ -->
-    <!-- VISTA COMBINADA -->
-    <!-- ============================================ -->
-    <div id="combined-view" class="view active">
-        <!-- Metrics Cards -->
-        <div class="metrics">
-            <div class="card">
-                <div class="card-icon">💰</div>
-                <h3>Equity Total</h3>
-                <p id="combined-equity" class="metric-value">$200.00</p>
-                <small class="metric-detail">
-                    <span class="adx-text">ADX: <span id="combined-adx-equity">$100</span></span> |
-                    <span class="ema-text">EMA: <span id="combined-ema-equity">$100</span></span>
-                </small>
+            <!-- EMA Chart Selector -->
+            <div class="chart-selector">
+                <h2>📈 Gráfico Bot EMA</h2>
+                <select id="ema-symbol-select" class="symbol-select">
+                    <option value="ETH">ETH/USDT</option>
+                    <option value="XRP">XRP/USDT</option>
+                    <option value="BNB">BNB/USDT</option>
+                    <option value="SOL">SOL/USDT</option>
+                </select>
             </div>
-            <div class="card">
-                <div class="card-icon">📈</div>
-                <h3>ROI Combinado</h3>
-                <p id="combined-roi" class="metric-value">0.00%</p>
-                <small class="metric-detail">Sobre capital inicial $200</small>
-            </div>
-            <div class="card">
-                <div class="card-icon">📍</div>
-                <h3>Posiciones Totales</h3>
-                <p id="combined-positions" class="metric-value">0/8</p>
-                <small class="metric-detail">
-                    ADX: <span id="combined-adx-pos">0</span> |
-                    EMA: <span id="combined-ema-pos">0</span>
-                </small>
-            </div>
-            <div class="card">
-                <div class="card-icon">⚖️</div>
-                <h3>Distribución</h3>
-                <p class="metric-value">
-                    <span id="combined-adx-pct" class="adx-text">50%</span> /
-                    <span id="combined-ema-pct" class="ema-text">50%</span>
-                </p>
-                <small class="metric-detail">ADX / EMA</small>
-            </div>
-        </div>
+            <div id="ema-chart" class="chart-container"></div>
 
-        <!-- Distribution Chart -->
-        <div class="chart-container">
-            <h2>📊 Distribución de Capital</h2>
-            <div id="distribution-chart"></div>
-            <option value="ETH">ETH/USDT</option>
-            <option value="XRP">XRP/USDT</option>
-            <option value="BNB">BNB/USDT</option>
-            <option value="SOL">SOL/USDT</option>
-            </select>
-        </div>
-        <div id="adx-chart" class="chart-container"></div>
-
-        <!-- ADX Trades Table -->
-        <div class="trades-section">
-            <h2>📋 Últimos Trades - Bot ADX</h2>
-            <div id="adx-trades-table" class="trades-table"></div>
-        </div>
-    </div>
-
-    <!-- ============================================ -->
-    <!-- VISTA BOT EMA -->
-    <!-- ============================================ -->
-    <div id="ema-view" class="view">
-        <!-- EMA Metrics -->
-        <div class="metrics">
-            <div class="card ema-card">
-                <div class="card-icon">💰</div>
-                <h3>Equity EMA</h3>
-                <p id="ema-equity" class="metric-value">$100.00</p>
+            <!-- EMA Trades Table -->
+            <div class="trades-section">
+                <h2>📋 Últimos Trades - Bot EMA</h2>
+                <div id="ema-trades-table" class="trades-table"></div>
             </div>
-            <div class="card ema-card">
-                <div class="card-icon">📈</div>
-                <h3>ROI EMA</h3>
-                <p id="ema-roi" class="metric-value">0.00%</p>
-            </div>
-            <div class="card ema-card">
-                <div class="card-icon">📍</div>
-                <h3>Posiciones</h3>
-                <p id="ema-positions" class="metric-value">0/4</p>
-            </div>
-            <div class="card ema-card">
-                <div class="card-icon">📊</div>
-                <h3>Estrategia</h3>
-                <p class="metric-value" style="font-size: 1.2rem;">EMA 15/30</p>
-            </div>
-        </div>
-
-        <!-- EMA Chart Selector -->
-        <div class="chart-selector">
-            <h2>📈 Gráfico Bot EMA</h2>
-            <select id="ema-symbol-select" class="symbol-select">
-                <option value="ETH">ETH/USDT</option>
-                <option value="XRP">XRP/USDT</option>
-                <option value="BNB">BNB/USDT</option>
-                <option value="SOL">SOL/USDT</option>
-            </select>
-        </div>
-        <div id="ema-chart" class="chart-container"></div>
-
-        <!-- EMA Trades Table -->
-        <div class="trades-section">
-            <h2>📋 Últimos Trades - Bot EMA</h2>
-            <div id="ema-trades-table" class="trades-table"></div>
-        </div>
     </div>
 
     <!-- ============================================ -->

@@ -385,43 +385,165 @@ function renderComparisonTable(data) {
 function renderChart(data, containerId, botType) {
     const candles = data.candles;
 
-    if (!trades || trades.length === 0) {
-        container.innerHTML = '<p style="text-align:center; color:#95a5a6;">No hay trades registrados aún</p>';
-        return;
+    // Separate closed candles from current candle
+    const closedCandles = candles.filter(c => !c.is_current);
+    const currentCandle = candles.find(c => c.is_current);
+
+    // Calculate range for last 50 candles to reduce clutter
+    let xrange = null;
+    if (closedCandles.length > 50) {
+        const start = closedCandles[closedCandles.length - 50].timestamp;
+        const end = closedCandles[closedCandles.length - 1].timestamp;
+        xrange = [start, end];
     }
 
-    const html = `
-        <table>
-            <thead>
-                <tr>
-                    <th>Fecha</th>
-                    <th>Par</th>
-                    <th>Tipo</th>
-                    <th>Precio</th>
-                    <th>Cantidad</th>
-                    <th>PnL</th>
-                    <th>Razón</th>
-                </tr>
-            </thead>
-            <tbody>
-                ${trades.reverse().map(t => `
-                    <tr>
-                        <td>${new Date(t.timestamp).toLocaleString('es-ES')}</td>
-                        <td>${t.symbol}</td>
-                        <td class="${t.type === 'buy' ? 'buy-badge' : 'sell-badge'}">${t.type.toUpperCase()}</td>
-                        <td>$${parseFloat(t.price).toFixed(2)}</td>
-                        <td>${parseFloat(t.qty).toFixed(6)}</td>
-                        <td class="${parseFloat(t.pnl) >= 0 ? 'profit' : 'loss'}">
-                            ${parseFloat(t.pnl) >= 0 ? '+' : ''}$${parseFloat(t.pnl).toFixed(2)}
-                        </td>
-                        <td>${t.reason || '-'}</td>
-                    </tr>
-                `).join('')}
-            </tbody>
-        </table>
-    `;
+    // Layout configuration
+    const layout = {
+        height: 500,
+        margin: { b: 80, r: 50, t: 30, l: 50 },
+        paper_bgcolor: 'rgba(0,0,0,0)',
+        plot_bgcolor: 'rgba(0,0,0,0)',
+        font: { color: '#ecf0f1' },
+        xaxis: {
+            rangeslider: { visible: false },
+            anchor: 'y',
+            range: xrange,
+            tickformat: '%d/%m %H:%M',
+            tickangle: -45,
+            automargin: true,
+            tickmode: 'auto',
+            nticks: 10
+        },
+        yaxis: { domain: [0, 1] }, // Full height for main chart
+        grid: { rows: 1, columns: 1, pattern: 'independent' },
+        showlegend: true,
+        legend: { orientation: 'h', y: 1.02, x: 0.5, xanchor: 'center' }
+    };
 
-    container.innerHTML = html;
+    // Base traces (Candlesticks)
+    const traces = [];
+
+    // 1. Candlestick Trace
+    traces.push({
+        x: closedCandles.map(c => c.timestamp),
+        open: closedCandles.map(c => c.open),
+        high: closedCandles.map(c => c.high),
+        low: closedCandles.map(c => c.low),
+        close: closedCandles.map(c => c.close),
+        type: 'candlestick',
+        name: data.symbol,
+        increasing: { line: { color: '#26a69a' } },
+        decreasing: { line: { color: '#ef5350' } }
+    });
+
+    // 2. Current Candle (Ghost)
+    if (currentCandle) {
+        traces.push({
+            x: [currentCandle.timestamp],
+            open: [currentCandle.open],
+            high: [currentCandle.high],
+            low: [currentCandle.low],
+            close: [currentCandle.close],
+            type: 'candlestick',
+            name: 'Actual (en progreso)',
+            increasing: { line: { color: '#26a69a', width: 1, dash: 'dot' }, fillcolor: 'rgba(38, 166, 154, 0.3)' },
+            decreasing: { line: { color: '#ef5350', width: 1, dash: 'dot' }, fillcolor: 'rgba(239, 83, 80, 0.3)' },
+            showlegend: false
+        });
+    }
+
+    // Update Indicator Panels (Last Closed Candle)
+    if (closedCandles.length > 0) {
+        const last = closedCandles[closedCandles.length - 1];
+        updateIndicatorsPanel(botType, last);
+    }
+
+    // Strategy Specific Chart Indicators
+    if (botType === 'ADX') {
+        // MA 50 only
+        traces.push({
+            x: closedCandles.map(c => c.timestamp),
+            y: closedCandles.map(c => c.ma),
+            type: 'scatter',
+            mode: 'lines',
+            name: 'MA 50',
+            line: { color: '#f39c12', width: 1.5 }
+        });
+
+    } else if (botType === 'EMA') {
+        // EMA 15
+        traces.push({
+            x: closedCandles.map(c => c.timestamp),
+            y: closedCandles.map(c => c.ema_fast),
+            type: 'scatter',
+            mode: 'lines',
+            name: 'EMA 15',
+            line: { color: '#3498db', width: 1.5 }
+        });
+
+        // EMA 30
+        traces.push({
+            x: closedCandles.map(c => c.timestamp),
+            y: closedCandles.map(c => c.ema_slow),
+            type: 'scatter',
+            mode: 'lines',
+            name: 'EMA 30',
+            line: { color: '#9b59b6', width: 1.5 }
+        });
+    }
+
+    Plotly.newPlot(containerId, traces, layout, { responsive: true });
+}
+
+function updateIndicatorsPanel(botType, candle) {
+    if (botType === 'ADX') {
+        // ADX Value
+        const adxEl = document.getElementById('adx-val');
+        if (adxEl) {
+            adxEl.textContent = candle.adx ? candle.adx.toFixed(2) : '--';
+            adxEl.className = `indicator-value ${candle.adx > 25 ? 'bullish' : 'bearish'}`;
+        }
+
+        // Trend (MA50)
+        const trendEl = document.getElementById('adx-trend');
+        if (trendEl) {
+            const isBullish = candle.close > candle.ma;
+            trendEl.textContent = isBullish ? 'BULLISH' : 'BEARISH';
+            trendEl.className = `indicator-value ${isBullish ? 'bullish' : 'bearish'}`;
+        }
+
+        // Long Term (MA200)
+        const longTermEl = document.getElementById('adx-long-term');
+        if (longTermEl) {
+            const isLongBullish = candle.close > candle.long_ma;
+            longTermEl.textContent = isLongBullish ? 'BULLISH' : 'BEARISH';
+            longTermEl.className = `indicator-value ${isLongBullish ? 'bullish' : 'bearish'}`;
+        }
+
+        // ATR
+        const atrEl = document.getElementById('adx-atr');
+        if (atrEl) {
+            atrEl.textContent = candle.atr ? candle.atr.toFixed(2) : '--';
+            atrEl.className = 'indicator-value neutral';
+        }
+
+    } else if (botType === 'EMA') {
+        // EMA Fast
+        const fastEl = document.getElementById('ema-fast-val');
+        if (fastEl) fastEl.textContent = candle.ema_fast ? candle.ema_fast.toFixed(2) : '--';
+
+        // EMA Slow
+        const slowEl = document.getElementById('ema-slow-val');
+        if (slowEl) slowEl.textContent = candle.ema_slow ? candle.ema_slow.toFixed(2) : '--';
+
+        // Signal
+        const signalEl = document.getElementById('ema-signal');
+        if (signalEl) {
+            const isBuy = candle.ema_fast > candle.ema_slow;
+            signalEl.textContent = isBuy ? 'BUY ZONE' : 'SELL ZONE';
+            signalEl.className = `indicator-value ${isBuy ? 'bullish' : 'bearish'}`;
+        }
+    }
 }
 
 // ============================================================================
