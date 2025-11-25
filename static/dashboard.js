@@ -384,14 +384,16 @@ function renderComparisonTable(data) {
 
 function renderChart(data, containerId, botType) {
     const candles = data.candles;
-    const trades = data.trades || [];
 
     // Separate closed candles from current candle
     const closedCandles = candles.filter(c => !c.is_current);
     const currentCandle = candles.find(c => c.is_current);
 
-    // Candlestick trace (closed candles)
-    const candlestickTrace = {
+    // Base traces (Candlesticks)
+    const traces = [];
+
+    // 1. Candlestick Trace
+    traces.push({
         x: closedCandles.map(c => c.timestamp),
         open: closedCandles.map(c => c.open),
         high: closedCandles.map(c => c.high),
@@ -401,11 +403,9 @@ function renderChart(data, containerId, botType) {
         name: data.symbol,
         increasing: { line: { color: '#26a69a' } },
         decreasing: { line: { color: '#ef5350' } }
-    };
+    });
 
-    const traces = [candlestickTrace];
-
-    // Current candle (if exists)
+    // 2. Current Candle (Ghost)
     if (currentCandle) {
         traces.push({
             x: [currentCandle.timestamp],
@@ -416,27 +416,89 @@ function renderChart(data, containerId, botType) {
             type: 'candlestick',
             name: 'Actual (en progreso)',
             increasing: { line: { color: '#26a69a', width: 1, dash: 'dot' }, fillcolor: 'rgba(38, 166, 154, 0.3)' },
-            decreasing: { line: { color: '#ef5350', width: 1, dash: 'dot' }, fillcolor: 'rgba(239, 83, 80, 0.3)' }
+            decreasing: { line: { color: '#ef5350', width: 1, dash: 'dot' }, fillcolor: 'rgba(239, 83, 80, 0.3)' },
+            showlegend: false
         });
     }
 
-    // Add MA lines
-    traces.push({
-        x: closedCandles.map(c => c.timestamp),
-        y: closedCandles.map(c => c.ma),
-        type: 'scatter',
-        mode: 'lines',
-        name: 'MA 50',
-        line: { color: '#f39c12', width: 1 }
-    });
-
+    // Layout configuration
     const layout = {
         height: 500,
-        xaxis: { rangeslider: { visible: false } },
         paper_bgcolor: 'rgba(0,0,0,0)',
         plot_bgcolor: 'rgba(0,0,0,0)',
-        font: { color: '#ecf0f1' }
+        font: { color: '#ecf0f1' },
+        xaxis: { rangeslider: { visible: false }, anchor: 'y' },
+        yaxis: { domain: [0.3, 1] }, // Main chart takes top 70%
+        yaxis2: { domain: [0, 0.2], title: 'ADX', anchor: 'x' }, // Subplot takes bottom 20%
+        grid: { rows: 2, columns: 1, pattern: 'independent' },
+        showlegend: true,
+        legend: { orientation: 'h', y: 1.02, x: 0.5, xanchor: 'center' }
     };
+
+    // Strategy Specific Indicators
+    if (botType === 'ADX') {
+        // --- ADX Strategy Indicators ---
+
+        // MA 50 (Main Chart)
+        traces.push({
+            x: closedCandles.map(c => c.timestamp),
+            y: closedCandles.map(c => c.ma),
+            type: 'scatter',
+            mode: 'lines',
+            name: 'MA 50',
+            line: { color: '#f39c12', width: 1.5 }
+        });
+
+        // ADX (Subplot)
+        traces.push({
+            x: closedCandles.map(c => c.timestamp),
+            y: closedCandles.map(c => c.adx),
+            type: 'scatter',
+            mode: 'lines',
+            name: 'ADX',
+            line: { color: '#e74c3c', width: 1.5 },
+            yaxis: 'y2'
+        });
+
+        // ADX Threshold Line (25)
+        traces.push({
+            x: [closedCandles[0].timestamp, closedCandles[closedCandles.length - 1].timestamp],
+            y: [25, 25],
+            type: 'scatter',
+            mode: 'lines',
+            name: 'Threshold (25)',
+            line: { color: 'rgba(255, 255, 255, 0.3)', width: 1, dash: 'dot' },
+            yaxis: 'y2',
+            showlegend: false
+        });
+
+    } else if (botType === 'EMA') {
+        // --- EMA Strategy Indicators ---
+
+        // EMA 15 (Fast)
+        traces.push({
+            x: closedCandles.map(c => c.timestamp),
+            y: closedCandles.map(c => c.ema_fast),
+            type: 'scatter',
+            mode: 'lines',
+            name: 'EMA 15',
+            line: { color: '#3498db', width: 1.5 }
+        });
+
+        // EMA 30 (Slow)
+        traces.push({
+            x: closedCandles.map(c => c.timestamp),
+            y: closedCandles.map(c => c.ema_slow),
+            type: 'scatter',
+            mode: 'lines',
+            name: 'EMA 30',
+            line: { color: '#9b59b6', width: 1.5 }
+        });
+
+        // For EMA bot, we don't need the subplot, so give full height to main chart
+        layout.yaxis.domain = [0, 1];
+        delete layout.yaxis2;
+    }
 
     Plotly.newPlot(containerId, traces, layout, { responsive: true });
 }

@@ -64,6 +64,12 @@ def calculate_indicators(df):
     # ADX (smoothed DX with RMA)
     df['adx'] = df['dx'].ewm(alpha=alpha, adjust=False).mean()
     
+    # EMAs for EMA Strategy
+    EMA_FAST = 15
+    EMA_SLOW = 30
+    df['ema_fast'] = df['close'].ewm(span=EMA_FAST, adjust=False).mean()
+    df['ema_slow'] = df['close'].ewm(span=EMA_SLOW, adjust=False).mean()
+    
     return df
 
 
