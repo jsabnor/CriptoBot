@@ -183,40 +183,6 @@ class TelegramNotifier:
         dashboard_url = os.getenv('DASHBOARD_URL', 'http://localhost:5000')
         
         buttons = [[
-            {'text': '📊 Ver Dashboard', 'url': dashboard_url},
-            {'text': '📋 Ver Historial', 'url': f'{dashboard_url}#trades'}
-        ]]
-        
-        self.send_message(text, buttons=buttons)
-    
-    def notify_cycle_complete(self, total_equity, initial_capital, roi, positions_count):
-        """
-        Notificación de ciclo completado.
-        
-        Args:
-            total_equity: Equity total actual
-            initial_capital: Capital inicial
-            roi: ROI total en %
-            positions_count: Número de posiciones abiertas
-        """
-        profit = roi > 0
-        emoji = '📊' if roi >= 0 else '📉'
-        
-        text = f"""{emoji} <b>Ciclo Completado</b>
-
-💰 Equity: <b>${total_equity:.2f}</b>
-📈 ROI Total: <b>{roi:+.2f}%</b>
-{'💚' if profit else '💔'} P&L: ${total_equity - initial_capital:.2f}
-📍 Posiciones: {positions_count}/4
-
-⏰ {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}"""
-        
-        self.send_message(text, silent=True)
-    
-    def notify_error(self, error_msg):
-        """
-        Notificación de error crítico.
-        
         Args:
             error_msg: Descripción del error
         """
