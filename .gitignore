@@ -68,3 +68,12 @@ env/
 Thumbs.db
 instance//
 data/.last_update.json
+
+# Temporary and Backup files
+*.tmp
+*.bak
+*.bak*
+.env.bak*
+bot_state.json.tmp
+bot_state_ema.json.tmp
+update_*.sh
