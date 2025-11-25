@@ -1,18 +1,18 @@
 [Unit]
-Description=Trading Bot v1.0
+Description=Trading Bot Production
 After=network.target
 
 [Service]
 Type=simple
-User=YOUR_USERNAME
-WorkingDirectory=/opt/bot
-Environment="PATH=/opt/bot/.venv/bin"
-ExecStart=/opt/bot/.venv/bin/python /opt/bot/bot_production.py
+User=j0s3m4
+WorkingDirectory=/home/j0s3m4/CriptoBot
+Environment="PATH=/home/j0s3m4/CriptoBot/.venv/bin"
+Environment="PYTHONUNBUFFERED=1"
+ExecStart=/home/j0s3m4/CriptoBot/start_bot.sh
 Restart=on-failure
 RestartSec=10
 StandardOutput=journal
 StandardError=journal
-SyslogIdentifier=trading-bot
 
 [Install]
 WantedBy=multi-user.target

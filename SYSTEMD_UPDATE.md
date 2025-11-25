@@ -1,155 +1,41 @@
-# Guía de Actualización del Servicio Systemd
+# Instalación del Servicio Systemd Mejorado
 
-## Problema
+## 🎯 Mejora Implementada
 
-El archivo de servicio systemd (`/etc/systemd/system/bot.service`) tiene la versión hardcodeada en la descripción:
+El servicio ahora usa un **script wrapper** (`start_bot.sh`) que:
+1. Lee la versión automáticamente del archivo `VERSION`
+2. Muestra la versión en los logs al iniciar
+3. No requiere editar el servicio manualmente en cada actualización
 
-```ini
-[Unit]
-Description=Trading Bot v1.4
-```
+## 📁 Archivos Creados
 
-Cuando actualizas el bot, la descripción del servicio no se actualiza automáticamente.
+### 1. `start_bot.sh` (Script Wrapper)
 
-## Solución
-
-### Opción 1: Actualizar Manualmente (Recomendado)
-
-Cada vez que actualices el bot a una nueva versión:
+Script que lee la versión y ejecuta el bot:
 
 ```bash
-# 1. Editar el servicio
-sudo nano /etc/systemd/system/bot.service
+#!/bin/bash
+# Script wrapper para el bot que muestra la versión al iniciar
 
-# 2. Cambiar la línea Description
-# De: Description=Trading Bot v1.4
-# A:  Description=Trading Bot v1.8.0
+# Leer versión del archivo VERSION
+VERSION=$(cat /home/j0s3m4/CriptoBot/VERSION | tr -d '\n\r')
 
-# 3. Recargar systemd
-sudo systemctl daemon-reload
+# Mostrar versión
+echo "========================================"
+echo "Trading Bot v$VERSION"
+echo "========================================"
 
-# 4. Verificar
-systemctl status bot.service
+# Ejecutar el bot
+exec /home/j0s3m4/CriptoBot/.venv/bin/python /home/j0s3m4/CriptoBot/bot_production.py
 ```
 
-### Opción 2: Descripción Genérica (Sin Versión)
+### 2. `bot.service` (Servicio Actualizado)
 
-Cambiar la descripción para que no incluya la versión:
+Servicio systemd que usa el wrapper:
 
-```bash
-# Editar servicio
-sudo nano /etc/systemd/system/bot.service
-```
-
-Cambiar a:
 ```ini
 [Unit]
 Description=Trading Bot Production
-After=network.target
-```
-
-Luego:
-```bash
-sudo systemctl daemon-reload
-```
-
-### Opción 3: Script de Actualización Automática
-
-Crear un script que actualice automáticamente:
-
-```bash
-# Crear script
-nano ~/update_bot_service.sh
-```
-
-Contenido:
-```bash
-#!/bin/bash
-
-# Leer versión del archivo VERSION
-VERSION=$(cat ~/CriptoBot/VERSION | tr -d '\n\r')
-
-# Actualizar descripción del servicio
-sudo sed -i "s/Description=Trading Bot v.*/Description=Trading Bot v$VERSION/" /etc/systemd/system/bot.service
-
-# Recargar systemd
-sudo systemctl daemon-reload
-
-echo "✅ Servicio actualizado a v$VERSION"
-systemctl status bot.service | head -5
-```
-
-Hacer ejecutable:
-```bash
-chmod +x ~/update_bot_service.sh
-```
-
-Usar después de cada actualización:
-```bash
-./update_bot_service.sh
-```
-
-## Proceso Completo de Actualización
-
-### En el VPS:
-
-```bash
-# 1. Navegar al directorio
-cd ~/CriptoBot
-
-# 2. Activar virtualenv
-source .venv/bin/activate
-
-# 3. Detener bot
-sudo systemctl stop bot.service
-
-# 4. Actualizar código
-git pull origin main
-
-# 5. Instalar nuevas dependencias (si las hay)
-pip install -r requirements.txt
-
-# 6. Actualizar .env si es necesario
-# Añadir DASHBOARD_URL=http://tu-vps-ip:5000
-nano .env
-
-# 7. Actualizar versión del servicio
-sudo nano /etc/systemd/system/bot.service
-# Cambiar: Description=Trading Bot v1.8.0
-
-# 8. Recargar systemd
-sudo systemctl daemon-reload
-
-# 9. Reiniciar bot
-sudo systemctl start bot.service
-
-# 10. Verificar estado
-systemctl status bot.service
-journalctl -u bot.service -f
-```
-
-## Verificación Post-Actualización
-
-```bash
-# Ver versión en logs
-journalctl -u bot.service | grep "BOT v"
-
-# Ver estado del servicio
-systemctl status bot.service
-
-# Ver logs en tiempo real
-journalctl -u bot.service -f
-
-# Verificar que está corriendo
-ps aux | grep bot_production
-```
-
-## Archivo de Servicio Actualizado v1.8.0
-
-```ini
-# /etc/systemd/system/bot.service
-[Unit]
-Description=Trading Bot v1.8.0
 After=network.target
 
 [Service]
@@ -158,7 +44,7 @@ User=j0s3m4
 WorkingDirectory=/home/j0s3m4/CriptoBot
 Environment="PATH=/home/j0s3m4/CriptoBot/.venv/bin"
 Environment="PYTHONUNBUFFERED=1"
-ExecStart=/home/j0s3m4/CriptoBot/.venv/bin/python /home/j0s3m4/CriptoBot/bot_production.py
+ExecStart=/home/j0s3m4/CriptoBot/start_bot.sh
 Restart=on-failure
 RestartSec=10
 StandardOutput=journal
@@ -168,39 +54,144 @@ StandardError=journal
 WantedBy=multi-user.target
 ```
 
-## Notas Importantes
+## 🚀 Instalación en el VPS
 
-1. **La versión en el servicio es solo cosmética** - No afecta el funcionamiento del bot
-2. **El bot muestra su versión en los logs** al iniciar
-3. **Puedes verificar la versión** con: `cat ~/CriptoBot/VERSION`
-4. **No olvides actualizar** el archivo `.env` con las nuevas configuraciones
-
-## Troubleshooting
-
-### El servicio no se actualiza
+### Paso 1: Subir Archivos
 
 ```bash
-# Forzar recarga completa
+# En el VPS, después de git pull
+cd ~/CriptoBot
+
+# Hacer el script ejecutable
+chmod +x start_bot.sh
+
+# Verificar que funciona
+./start_bot.sh
+# Deberías ver: "Trading Bot v1.8.0"
+# Presiona Ctrl+C para detener
+```
+
+### Paso 2: Actualizar Servicio Systemd
+
+```bash
+# Copiar el nuevo archivo de servicio
+sudo cp bot.service /etc/systemd/system/bot.service
+
+# Recargar systemd
 sudo systemctl daemon-reload
+
+# Reiniciar el servicio
 sudo systemctl restart bot.service
+
+# Verificar estado
+systemctl status bot.service
 ```
 
-### Ver versión actual del bot
+### Paso 3: Verificar Logs
 
 ```bash
-# En los logs
-journalctl -u bot.service | grep "BOT v" | tail -1
+# Ver logs en tiempo real
+journalctl -u bot.service -f
 
-# En el archivo
+# Deberías ver algo como:
+# ========================================
+# Trading Bot v1.8.0
+# ========================================
+# BOT v1.0 PRODUCTION - MODO: PAPER
+```
+
+## ✅ Beneficios
+
+1. **Automático** - La versión se lee del archivo `VERSION`
+2. **Sin edición manual** - No necesitas editar el servicio en cada actualización
+3. **Visible en logs** - La versión aparece claramente al iniciar
+4. **Mantenible** - Un solo lugar para actualizar la versión
+
+## 🔄 Proceso de Actualización Futuro
+
+Ahora, cuando actualices a una nueva versión:
+
+```bash
+# 1. Pull cambios
+git pull origin main
+
+# 2. Reiniciar servicio (¡eso es todo!)
+sudo systemctl restart bot.service
+
+# 3. Verificar versión en logs
+journalctl -u bot.service | grep "Trading Bot v"
+```
+
+**No necesitas:**
+- ❌ Editar `/etc/systemd/system/bot.service`
+- ❌ Ejecutar `daemon-reload` (a menos que cambies el servicio)
+- ❌ Actualizar la descripción manualmente
+
+## 📊 Comparación
+
+### Antes (v1.4-v1.7)
+```bash
+# Cada actualización requería:
+1. git pull
+2. sudo nano /etc/systemd/system/bot.service
+3. Cambiar "Description=Trading Bot v1.X"
+4. sudo systemctl daemon-reload
+5. sudo systemctl restart bot.service
+```
+
+### Ahora (v1.8.0+)
+```bash
+# Solo requiere:
+1. git pull
+2. sudo systemctl restart bot.service
+```
+
+## 🐛 Troubleshooting
+
+### El script no es ejecutable
+
+```bash
+chmod +x ~/CriptoBot/start_bot.sh
+```
+
+### Permiso denegado
+
+```bash
+# Verificar permisos
+ls -la ~/CriptoBot/start_bot.sh
+
+# Debería mostrar: -rwxr-xr-x
+```
+
+### No aparece la versión en logs
+
+```bash
+# Verificar que el archivo VERSION existe
 cat ~/CriptoBot/VERSION
+
+# Verificar que el script funciona
+~/CriptoBot/start_bot.sh
 ```
 
-### Verificar cambios aplicados
+### El servicio no arranca
 
 ```bash
-# Ver configuración del servicio
-systemctl cat bot.service
-
-# Ver estado detallado
+# Ver error específico
 systemctl status bot.service -l
+
+# Ver logs completos
+journalctl -u bot.service -n 50
 ```
+
+## 📝 Notas Importantes
+
+1. **Primera vez:** Necesitas hacer la instalación completa (Pasos 1-3)
+2. **Actualizaciones futuras:** Solo `git pull` y `restart`
+3. **El archivo `bot.service` ahora está en el repo** - Se puede versionar
+4. **El script `start_bot.sh` también está en el repo** - Versionado automático
+
+## ✨ Resultado
+
+Ahora el servicio systemd es **"self-updating"** en cuanto a la versión. Solo necesitas actualizar el archivo `VERSION` y el servicio mostrará automáticamente la versión correcta en los logs.
+
+¡Mucho más mantenible! 🎉
