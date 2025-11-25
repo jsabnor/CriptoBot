@@ -1,13 +1,44 @@
-  - Duración de trades en formato legible (Xh Ym, Xd Yh)
-  
-- **Telegram: Botones interactivos**
-  - Acceso directo al dashboard desde notificaciones
-  - Links a TradingView para análisis rápido
-  - Botones contextuales según tipo de notificación
+# Changelog
 
-- **Telegram: Nuevos tipos de notificaciones**
-  - `notify_milestone()` - Celebración de logros (ROI +10%, 100 trades, rachas)
-  - `notify_risk_alert()` - Alertas de situaciones de riesgo
+## [2.0.0] - 2025-11-25
+
+### 🚀 Major Release: Dashboard Dual Bot
+
+**Dashboard Unificado**
+- Nuevo dashboard con 4 vistas interactivas (Combinada, ADX, EMA, Comparación)
+- Sistema de navegación por tabs
+- Vista combinada con métricas totales y distribución de capital
+- Vistas individuales para cada bot con gráficos y trades
+- Vista de comparación con gráficos de ROI y Win Rate
+- Actualización automática cada 30 segundos
+- Diseño responsive para móvil/tablet/desktop
+
+**Backend API**
+- Nuevo endpoint `/api/dual_status` - Estado combinado de ambos bots
+- Nuevo endpoint `/api/bot/<name>/status` - Estado individual (adx/ema)
+- Nuevo endpoint `/api/bot/<name>/trades` - Trades por bot
+- Nuevo endpoint `/api/comparison` - Datos comparativos
+- Funciones helper: `load_bot_state()`, `load_bot_trades()`, `calculate_combined_metrics()`
+
+**Frontend**
+- HTML con estructura de tabs y 4 vistas (~250 líneas)
+- JavaScript completo con navegación y renderizado (~450 líneas)
+- CSS con estilos dual bot y colores diferenciados (~200 líneas)
+- Gráficos interactivos con Plotly
+- Animaciones suaves entre vistas
+
+**Bot EMA**
+- Añadida notificación de inicio por Telegram con prefijo [EMA]
+- Mensaje de startup con configuración y capital
+
+**Total:** ~1,070 líneas de código nuevo
+
+---
+
+## [1.9.0] - 2025-11-25
+
+### 🚀 Nueva Estrategia EMA Crossover
+
   - `notify_strong_signal()` - Señales fuertes detectadas sin posición
   - `notify_daily_summary()` - Resumen diario automático
   - `notify_weekly_summary()` - Resumen semanal con top performers

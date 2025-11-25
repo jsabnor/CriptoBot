@@ -93,6 +93,21 @@ class EMABot:
         print(f"Capital por par: ${self.capital_per_pair}")
         print(f"Riesgo por trade: {self.RISK_PERCENT*100}%")
         print(f"{'='*60}\n")
+        
+        # Notificar inicio por Telegram
+        if self.telegram.enabled:
+            total_capital = self.capital_per_pair * len(self.symbols)
+            startup_msg = (
+                f"🚀 [EMA] BOT INICIADO\n\n"
+                f"📊 Estrategia: EMA {self.EMA_FAST}/{self.EMA_SLOW}\n"
+                f"🎯 Modo: {self.MODE.upper()}\n"
+                f"💰 Capital: ${total_capital:.2f}\n"
+                f"📈 Pares: {len(self.symbols)}\n"
+                f"⏰ Timeframe: {self.timeframe}\n"
+                f"🎲 Riesgo: {self.RISK_PERCENT*100}%/trade"
+            )
+            self.telegram.send_message(startup_msg)
+    
     
     def calculate_ema(self, df, period):
         """Calcula EMA"""
