@@ -1,0 +1,18 @@
+[Unit]
+Description=Trading Bot EMA Crossover
+After=network.target
+
+[Service]
+Type=simple
+User=j0s3m4
+WorkingDirectory=/home/j0s3m4/CriptoBot
+Environment="PATH=/home/j0s3m4/CriptoBot/.venv/bin"
+Environment="PYTHONUNBUFFERED=1"
+ExecStart=/home/j0s3m4/CriptoBot/.venv/bin/python /home/j0s3m4/CriptoBot/bot_ema_crossover.py
+Restart=on-failure
+RestartSec=10
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target

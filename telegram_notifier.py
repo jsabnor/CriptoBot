@@ -77,7 +77,7 @@ class TelegramNotifier:
         
         self.send_message(text)
     
-    def notify_buy(self, symbol, price, qty, cost, sl_price, tp_price, adx=None, ma_status=None):
+    def notify_buy(self, symbol, price, qty, cost, sl_price, tp_price, adx=None, ma_status=None, strategy_name=''):
         """
         Notificación de compra mejorada.
         
@@ -90,6 +90,7 @@ class TelegramNotifier:
             tp_price: Precio de take profit estimado
             adx: Valor del ADX (opcional)
             ma_status: Estado de MA ('bullish' o 'bearish', opcional)
+            strategy_name: Nombre de la estrategia (opcional, ej: 'ADX', 'EMA')
         """
         # Calcular potenciales
         potential_loss = ((sl_price - price) / price) * 100
@@ -100,9 +101,12 @@ class TelegramNotifier:
         adx_emoji = '🔥' if adx and adx > 30 else '✅' if adx and adx > 25 else '⚡'
         ma_emoji = '✅' if ma_status == 'bullish' else '⚠️' if ma_status else '➖'
         
+        # Prefijo de estrategia
+        strategy_prefix = f"[{strategy_name}] " if strategy_name else ""
+        
         # Construir mensaje
         symbol_clean = symbol.replace('/USDT', '')
-        text = f"""🟢 <b>COMPRA EJECUTADA</b>
+        text = f"""🟢 <b>{strategy_prefix}COMPRA EJECUTADA</b>
 
 ━━━━━━━━━━━━━━━━━━━━
 🪙 <b>{symbol_clean}/USDT</b>
@@ -148,7 +152,7 @@ class TelegramNotifier:
         
         self.send_message(text, buttons=buttons)
     
-    def notify_sell(self, symbol, price, qty, reason, pnl, roi, entry_price=None, duration=None):
+    def notify_sell(self, symbol, price, qty, reason, pnl, roi, entry_price=None, duration=None, strategy_name=''):
         """
         Notificación de venta mejorada.
         
@@ -161,19 +165,22 @@ class TelegramNotifier:
             roi: Retorno sobre inversión en %
             entry_price: Precio de entrada (opcional)
             duration: Duración del trade en formato string (opcional)
+            strategy_name: Nombre de la estrategia (opcional)
         """
         emoji_map = {
             'TP': '💰',
             'SL': '🛑',
             'MA_SL': '⚠️',
-            'bearish': '📉'
+            'bearish': '📉',
+            'Signal': '📊'
         }
         
         reason_map = {
             'TP': 'Take Profit',
             'SL': 'Stop Loss',
             'MA_SL': 'Stop Loss (MA)',
-            'bearish': 'Señal Bajista'
+            'bearish': 'Señal Bajista',
+            'Signal': 'Señal de Salida'
         }
         
         emoji = emoji_map.get(reason, '📉')
@@ -182,8 +189,11 @@ class TelegramNotifier:
         result_emoji = '🟢' if profit else '🔴'
         pnl_emoji = '💚' if profit else '💔'
         
+        # Prefijo de estrategia
+        strategy_prefix = f"[{strategy_name}] " if strategy_name else ""
+        
         symbol_clean = symbol.replace('/USDT', '')
-        text = f"""{result_emoji} <b>VENTA EJECUTADA</b>
+        text = f"""{result_emoji} <b>{strategy_prefix}VENTA EJECUTADA</b>
 
 ━━━━━━━━━━━━━━━━━━━━
 🪙 <b>{symbol_clean}/USDT</b>

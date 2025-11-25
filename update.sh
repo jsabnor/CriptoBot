@@ -126,13 +126,23 @@ if [[ ! $REPLY =~ ^[Ss]$ ]]; then
 fi
 
 # ============================================================================
-# 5. VERIFICAR SI EL BOT ESTÁ CORRIENDO
+# 5. VERIFICAR SI LOS BOTS ESTÁN CORRIENDO
 # ============================================================================
-BOT_RUNNING=false
+BOT_ADX_RUNNING=false
+BOT_EMA_RUNNING=false
+
 if systemctl is-active --quiet bot.service 2>/dev/null; then
-    BOT_RUNNING=true
-    print_warning "El bot está corriendo como servicio"
-    echo "Se detendrá temporalmente para aplicar la actualización"
+    BOT_ADX_RUNNING=true
+    print_warning "El bot ADX está corriendo como servicio"
+fi
+
+if systemctl is-active --quiet bot_ema.service 2>/dev/null; then
+    BOT_EMA_RUNNING=true
+    print_warning "El bot EMA está corriendo como servicio"
+fi
+
+if [ "$BOT_ADX_RUNNING" = true ] || [ "$BOT_EMA_RUNNING" = true ]; then
+    echo "Los bots se detendrán temporalmente para aplicar la actualización"
 fi
 
 # ============================================================================
@@ -159,12 +169,18 @@ print_success "Backup creado exitosamente"
 print_info "Ubicación: $BACKUP_DIR"
 
 # ============================================================================
-# 7. DETENER EL BOT SI ESTÁ CORRIENDO
+# 7. DETENER LOS BOTS SI ESTÁN CORRIENDO
 # ============================================================================
-if [ "$BOT_RUNNING" = true ]; then
-    print_info "Deteniendo el bot..."
+if [ "$BOT_ADX_RUNNING" = true ]; then
+    print_info "Deteniendo el bot ADX..."
     sudo systemctl stop bot.service
-    print_success "Bot detenido"
+    print_success "Bot ADX detenido"
+fi
+
+if [ "$BOT_EMA_RUNNING" = true ]; then
+    print_info "Deteniendo el bot EMA..."
+    sudo systemctl stop bot_ema.service
+    print_success "Bot EMA detenido"
 fi
 
 # ============================================================================
@@ -178,6 +194,9 @@ if [ -f ".env" ]; then
 fi
 if [ -f "bot_state.json" ]; then
     cp bot_state.json bot_state.json.tmp
+fi
+if [ -f "bot_state_ema.json" ]; then
+    cp bot_state_ema.json bot_state_ema.json.tmp
 fi
 
 # ============================================================================
@@ -212,6 +231,12 @@ if [ -f "bot_state.json.tmp" ]; then
     print_success "Archivo bot_state.json restaurado"
 fi
 
+if [ -f "bot_state_ema.json.tmp" ]; then
+    mv bot_state_ema.json.tmp bot_state_ema.json
+    chown $ACTUAL_USER:$ACTUAL_USER bot_state_ema.json
+    print_success "Archivo bot_state_ema.json restaurado"
+fi
+
 # ============================================================================
 # 11. ACTUALIZAR DEPENDENCIAS SI ES NECESARIO
 # ============================================================================
@@ -231,7 +256,30 @@ else
 fi
 
 # ============================================================================
-# 11.5. CORREGIR PERMISOS DE TODOS LOS ARCHIVOS
+# 11.5. ACTUALIZAR SERVICIOS SYSTEMD
+# ============================================================================
+print_header "ACTUALIZANDO SERVICIOS SYSTEMD"
+
+# Copiar archivos de servicio si existen
+if [ -f "bot.service" ]; then
+    print_info "Actualizando bot.service..."
+    sudo cp bot.service /etc/systemd/system/bot.service
+    print_success "bot.service actualizado"
+fi
+
+if [ -f "bot_ema.service" ]; then
+    print_info "Actualizando bot_ema.service..."
+    sudo cp bot_ema.service /etc/systemd/system/bot_ema.service
+    print_success "bot_ema.service actualizado"
+fi
+
+# Recargar systemd
+print_info "Recargando systemd..."
+sudo systemctl daemon-reload
+print_success "Systemd recargado"
+
+# ============================================================================
+# 11.6. CORREGIR PERMISOS DE TODOS LOS ARCHIVOS
 # ============================================================================
 print_info "Corrigiendo permisos de archivos..."
 
@@ -250,37 +298,40 @@ fi
 chmod +x check_updates.sh 2>/dev/null || true
 chmod +x update.sh 2>/dev/null || true
 chmod +x install.sh 2>/dev/null || true
+chmod +x start_bot.sh 2>/dev/null || true
 
 print_success "Permisos corregidos"
 
 # ============================================================================
-# 12. REINICIAR EL BOT
+# 12. REINICIAR LOS BOTS
 # ============================================================================
-if [ "$BOT_RUNNING" = true ]; then
-    print_header "REINICIANDO BOT"
+if [ "$BOT_ADX_RUNNING" = true ] || [ "$BOT_EMA_RUNNING" = true ]; then
+    print_header "REINICIANDO BOTS"
     
-    print_info "Iniciando el bot..."
-    sudo systemctl start bot.service
+    if [ "$BOT_ADX_RUNNING" = true ]; then
+        print_info "Iniciando el bot ADX..."
+        sudo systemctl start bot.service
+        sleep 2
+        
+        if systemctl is-active --quiet bot.service; then
+            print_success "Bot ADX reiniciado exitosamente"
+        else
+            print_error "El bot ADX no pudo iniciar correctamente"
+            echo "Verifica: sudo systemctl status bot"
+        fi
+    fi
     
-    # Esperar un momento
-    sleep 3
-    
-    # Verificar que arrancó correctamente
-    if systemctl is-active --quiet bot.service; then
-        print_success "Bot reiniciado exitosamente"
-    else
-        print_error "El bot no pudo iniciar correctamente"
-        echo ""
-        echo "Verifica el estado con:"
-        echo "  sudo systemctl status bot"
-        echo "  sudo journalctl -u bot -n 50"
-        echo ""
-        echo "Si hay problemas, puedes restaurar el backup:"
-        echo "  sudo systemctl stop bot"
-        echo "  rm -rf $SCRIPT_DIR/*"
-        echo "  cp -r $BACKUP_DIR/* $SCRIPT_DIR/"
-        echo "  sudo systemctl start bot"
-        exit 1
+    if [ "$BOT_EMA_RUNNING" = true ]; then
+        print_info "Iniciando el bot EMA..."
+        sudo systemctl start bot_ema.service
+        sleep 2
+        
+        if systemctl is-active --quiet bot_ema.service; then
+            print_success "Bot EMA reiniciado exitosamente"
+        else
+            print_error "El bot EMA no pudo iniciar correctamente"
+            echo "Verifica: sudo systemctl status bot_ema"
+        fi
     fi
 fi
 
@@ -297,14 +348,25 @@ echo -e "  Versión anterior: v$LOCAL_VERSION"
 echo -e "  Versión actual:   v$NEW_VERSION"
 echo -e "  Backup guardado:  $BACKUP_DIR"
 
-if [ "$BOT_RUNNING" = true ]; then
-    echo -e "\n${BLUE}Estado del bot:${NC}"
-    sudo systemctl status bot --no-pager -l | head -10
+if [ "$BOT_ADX_RUNNING" = true ] || [ "$BOT_EMA_RUNNING" = true ]; then
+    echo -e "\n${BLUE}Estado de los bots:${NC}"
+    
+    if [ "$BOT_ADX_RUNNING" = true ]; then
+        echo -e "\n${GREEN}Bot ADX:${NC}"
+        sudo systemctl status bot --no-pager -l | head -10
+    fi
+    
+    if [ "$BOT_EMA_RUNNING" = true ]; then
+        echo -e "\n${GREEN}Bot EMA:${NC}"
+        sudo systemctl status bot_ema --no-pager -l | head -10
+    fi
 fi
 
 echo -e "\n${BLUE}Comandos útiles:${NC}"
-echo "  sudo systemctl status bot    - Ver estado"
-echo "  sudo journalctl -u bot -f    - Ver logs en tiempo real"
-echo "  cat bot_state.json           - Ver estado actual"
+echo "  sudo systemctl status bot bot_ema  - Ver estado de ambos bots"
+echo "  sudo journalctl -u bot -f          - Ver logs bot ADX"
+echo "  sudo journalctl -u bot_ema -f      - Ver logs bot EMA"
+echo "  cat bot_state.json                 - Ver estado bot ADX"
+echo "  cat bot_state_ema.json             - Ver estado bot EMA"
 
 echo -e "\n${GREEN}¡Actualización exitosa!${NC}\n"

@@ -244,39 +244,6 @@ class TradingBot:
                 success = True
             except Exception as e:
                 print(f"❌ Error comprando {symbol}: {e}")
-                self.telegram.notify_error(f"Error comprando {symbol}: {str(e)}")
-                success = False
-        
-        # Notificar por Telegram con indicadores técnicos
-        if success and self.telegram.enabled:
-            self.telegram.notify_buy(symbol, price, qty, cost, sl_price, tp_price, adx, ma_status)
-        
-        return success
-    
-    def execute_sell(self, symbol, price, qty, reason, entry_price, pnl, duration=None):
-        """Ejecuta orden de venta."""
-        if self.MODE == 'paper':
-            print(f"📉 PAPER SELL: {symbol} | Qty: {qty:.8f} | Price: ${price:.2f} | Reason: {reason}")
-            success = True
-        else:
-            try:
-                order = self.exchange.create_market_sell_order(symbol, qty)
-                print(f"✅ LIVE SELL: {symbol} | Qty: {qty:.8f} | Price: ${price:.2f} | Reason: {reason}")
-                success = True
-            except Exception as e:
-                print(f"❌ Error vendiendo {symbol}: {e}")
-                self.telegram.notify_error(f"Error vendiendo {symbol}: {str(e)}")
-                success = False
-        
-        # Notificar por Telegram con información completa
-        if success and self.telegram.enabled:
-            roi = ((price - entry_price) / entry_price) * 100 if entry_price > 0 else 0
-            self.telegram.notify_sell(symbol, price, qty, reason, pnl, roi, entry_price, duration)
-        
-        return success
-    
-    def calculate_trade_duration(self, entry_time):
-        """Calcula la duración del trade en formato legible."""
         if not entry_time:
             return None
         
