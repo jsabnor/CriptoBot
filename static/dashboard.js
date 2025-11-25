@@ -429,27 +429,6 @@ function renderChart(data, containerId, botType) {
         // Get timestamp of the last candle (plus a bit of buffer if needed, but Plotly handles it)
         const end = closedCandles[closedCandles.length - 1].timestamp;
         xrange = [start, end];
-    }
-
-    // Layout configuration
-    const layout = {
-        height: 500,
-        paper_bgcolor: 'rgba(0,0,0,0)',
-        plot_bgcolor: 'rgba(0,0,0,0)',
-        font: { color: '#ecf0f1' },
-        xaxis: {
-            rangeslider: { visible: false },
-            anchor: 'y',
-            range: xrange, // Initial zoom level
-            tickformat: '%d/%m %H:%M', // Shorter date format (Day/Month Hour:Minute)
-            tickangle: -45, // Angled ticks for better readability
-            nticks: 10 // Limit number of ticks to avoid overcrowding
-        },
-        yaxis: { domain: [0.3, 1] }, // Main chart takes top 70%
-        yaxis2: { domain: [0, 0.2], title: 'ADX', anchor: 'x' }, // Subplot takes bottom 20%
-        grid: { rows: 2, columns: 1, pattern: 'independent' },
-        showlegend: true,
-        legend: { orientation: 'h', y: 1.02, x: 0.5, xanchor: 'center' }
     };
 
     // Strategy Specific Indicators

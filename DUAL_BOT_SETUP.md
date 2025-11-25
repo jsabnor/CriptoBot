@@ -164,6 +164,24 @@ systemctl status bot.service bot_ema.service
 systemctl status bot_ema.service
 ```
 
+## 📊 Dashboard Web Unificado
+
+Puedes monitorear ambos bots desde una única interfaz web:
+
+```bash
+# Iniciar dashboard (si no está corriendo)
+python dashboard.py
+```
+
+**Características:**
+- 🔄 **Vista Combinada**: Equity total y distribución.
+- 📈 **Vistas Individuales**: Gráficos y trades de cada bot.
+- 🆚 **Comparación**: ROI y Win Rate lado a lado.
+
+Acceso: `http://TU_IP_VPS:5000`
+
+📚 Ver [DASHBOARD_DUAL_BOT.md](DASHBOARD_DUAL_BOT.md) para la guía completa.
+
 ## 📊 Monitoreo
 
 ### Archivos Generados

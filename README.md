@@ -119,21 +119,22 @@ El bot puede enviarte notificaciones en tiempo real de todas las operaciones:
 
 📚 Ver [TELEGRAM.md](TELEGRAM.md) para configurar notificaciones
 
-## 📊 Dashboard Web
+## 📊 Dashboard Web (Dual Bot)
 
-Interfaz web para monitorear el bot con gráficos interactivos en tiempo real:
+Interfaz web unificada para monitorear ambos bots (ADX y EMA) simultáneamente:
 
-- 📈 **Gráficos de velas en tiempo real** con vela actual en progreso
-- 📊 **Indicadores técnicos**: ADX, MA50, MA200
-- 🟢🔴 **Marcadores de compra/venta** en los gráficos
-- 💰 **Métricas en tiempo real** (equity, ROI, posiciones)
-- 📋 **Historial de trades** con P&L
-- 🔄 **Auto-refresh**: Actualización cada 30 segundos
+- 🔄 **Vista Combinada**: Equity total, distribución de capital y ROI global.
+- 📈 **Vistas Individuales**:
+  - **Bot ADX**: Gráfico con MA50 y ADX/DI en eje secundario.
+  - **Bot EMA**: Gráfico con EMA 15/30.
+- 🆚 **Comparación**: Gráficos de barras comparando ROI y Win Rate.
+- 📱 **Diseño Responsive**: Funciona en móvil y desktop.
+- ⚡ **Tiempo Real**: Actualización automática cada 30 segundos.
 
-**Características v1.7.0:**
-- ✨ **Vela actual visible**: Muestra la vela en progreso con estilo semi-transparente
-- ⚡ **Datos frescos**: Caché actualizado cada 5 minutos
-- 🎨 **Diferenciación visual**: Vela actual con borde punteado y opacidad 70%
+**Características v2.0+:**
+- ✨ **Indicadores Específicos**: Cada bot muestra sus propios indicadores en el gráfico.
+- 📉 **Zoom Automático**: Muestra las últimas 50 velas por defecto para mayor claridad.
+- 🎨 **Interfaz Mejorada**: Navegación por pestañas y temas de color específicos por bot.
 
 ```bash
 # Iniciar dashboard
@@ -146,7 +147,7 @@ http://localhost:5000
 http://IP_VPS:5000
 ```
 
-📚 Ver [DASHBOARD.md](DASHBOARD.md) para configuración completa
+📚 Ver [DASHBOARD_DUAL_BOT.md](DASHBOARD_DUAL_BOT.md) para detalles completos.
 
 ## ⚠️ Importante
 
