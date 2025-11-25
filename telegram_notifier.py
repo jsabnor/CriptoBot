@@ -30,6 +30,47 @@ class TelegramNotifier:
             bool: True si se envió correctamente
         """
         if not self.enabled:
+            return False
+            
+        try:
+            payload = {
+                'chat_id': self.chat_id,
+                'text': text,
+                'parse_mode': 'HTML',
+                'disable_notification': silent
+            }
+            
+            # Añadir botones si se proporcionan
+            if buttons:
+                payload['reply_markup'] = {'inline_keyboard': buttons}
+            
+            response = requests.post(
+                self.api_url,
+                json=payload,
+                timeout=10
+            )
+            return response.status_code == 200
+        except Exception as e:
+            print(f"⚠️ Error enviando mensaje a Telegram: {e}")
+            return False
+    
+    def notify_startup(self, mode, symbols, capital):
+        """Notificación de inicio del bot."""
+        msg = (
+            f"🚀 [ADX] BOT INICIADO\n\n"
+            f"📊 Estrategia: ADX + ATR\n"
+            f"🎯 Modo: {mode.upper()}\n"
+            f" Capital: ${capital:.2f}\n"
+            f"📈 Pares: {len(symbols)}\n"
+            f"⏰ Timeframe: 4h\n"
+            f"🎲 Riesgo: 4.0%/trade"
+        )
+        self.send_message(msg)
+    
+    def notify_buy(self, symbol, price, qty, cost, sl_price, tp_price, adx=None, ma_status=None, strategy_name=''):
+        """
+        Notificación de compra mejorada.
+        
         Args:
             symbol: Par (ej: 'ETH/USDT')
             price: Precio de compra
@@ -183,6 +224,40 @@ class TelegramNotifier:
         dashboard_url = os.getenv('DASHBOARD_URL', 'http://localhost:5000')
         
         buttons = [[
+            {'text': '📊 Ver Dashboard', 'url': dashboard_url},
+            {'text': '📋 Ver Historial', 'url': f'{dashboard_url}#trades'}
+        ]]
+        
+        self.send_message(text, buttons=buttons)
+    
+    def notify_cycle_complete(self, total_equity, initial_capital, roi, positions_count):
+        """
+        Notificación de ciclo completado.
+        
+        Args:
+            total_equity: Equity total actual
+            initial_capital: Capital inicial
+            roi: ROI total en %
+            positions_count: Número de posiciones abiertas
+        """
+        profit = roi > 0
+        emoji = '📊' if roi >= 0 else '📉'
+        
+        text = f"""{emoji} <b>Ciclo Completado</b>
+
+💰 Equity: <b>${total_equity:.2f}</b>
+📈 ROI Total: <b>{roi:+.2f}%</b>
+{'💚' if profit else '💔'} P&L: ${total_equity - initial_capital:.2f}
+📍 Posiciones: {positions_count}/4
+
+⏰ {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}"""
+        
+        self.send_message(text, silent=True)
+    
+    def notify_error(self, error_msg):
+        """
+        Notificación de error crítico.
+        
         Args:
             error_msg: Descripción del error
         """
