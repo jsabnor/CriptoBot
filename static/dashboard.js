@@ -1,106 +1,413 @@
+// ============================================================================
+// DUAL BOT DASHBOARD - JavaScript
+// ============================================================================
+
 // Configuration
 const SYMBOLS = ['ETH', 'XRP', 'BNB', 'SOL'];
 const REFRESH_INTERVAL = 30000; // 30 seconds
+let currentView = 'combined';
+let currentADXSymbol = 'ETH';
+let currentEMASymbol = 'ETH';
 
-// Initialize dashboard
+// ============================================================================
+// INITIALIZATION
+// ============================================================================
+
 document.addEventListener('DOMContentLoaded', function () {
-    console.log('Dashboard initialized');
+    console.log('Dual Bot Dashboard initialized');
+
+    // Setup tab navigation
+    setupTabs();
+
+    // Setup symbol selectors
+    setupSymbolSelectors();
+
+    // Initial update
     updateDashboard();
+
+    // Auto-refresh
     setInterval(updateDashboard, REFRESH_INTERVAL);
 });
 
-// Main update function
-function updateDashboard() {
-    updateStatus();
-    updateCharts();
-    updateTrades();
-    updateLastUpdateTime();
+// ============================================================================
+// TAB NAVIGATION
+// ============================================================================
+
+function setupTabs() {
+    const tabs = document.querySelectorAll('.tab');
+
+    tabs.forEach(tab => {
+        tab.addEventListener('click', function () {
+            const viewName = this.getAttribute('data-view');
+            switchView(viewName);
+        });
+    });
 }
 
-// Update bot status and metrics
-function updateStatus() {
-    fetch('/api/status')
+function switchView(viewName) {
+    // Update current view
+    currentView = viewName;
+
+    // Hide all views
+    document.querySelectorAll('.view').forEach(view => {
+        view.classList.remove('active');
+    });
+
+    // Show selected view
+    document.getElementById(`${viewName}-view`).classList.add('active');
+
+    // Update active tab
+    document.querySelectorAll('.tab').forEach(tab => {
+        tab.classList.remove('active');
+    });
+    document.querySelector(`[data-view="${viewName}"]`).classList.add('active');
+
+    // Update view-specific data
+    if (viewName === 'adx') {
+        updateADXChart(currentADXSymbol);
+    } else if (viewName === 'ema') {
+        updateEMAChart(currentEMASymbol);
+    } else if (viewName === 'comparison') {
+        updateComparisonView();
+    }
+}
+
+// ============================================================================
+// SYMBOL SELECTORS
+// ============================================================================
+
+function setupSymbolSelectors() {
+    // ADX symbol selector
+    const adxSelect = document.getElementById('adx-symbol-select');
+    if (adxSelect) {
+        adxSelect.addEventListener('change', function () {
+            currentADXSymbol = this.value;
+            updateADXChart(currentADXSymbol);
+        });
+    }
+
+    // EMA symbol selector
+    const emaSelect = document.getElementById('ema-symbol-select');
+    if (emaSelect) {
+        emaSelect.addEventListener('change', function () {
+            currentEMASymbol = this.value;
+            updateEMAChart(currentEMASymbol);
+        });
+    }
+}
+
+// ============================================================================
+// MAIN UPDATE FUNCTION
+// ============================================================================
+
+function updateDashboard() {
+    updateDualStatus();
+    updateLastUpdateTime();
+
+    // Update view-specific data based on current view
+    if (currentView === 'combined') {
+        // Combined view updates automatically with dual status
+    } else if (currentView === 'adx') {
+        updateADXView();
+    } else if (currentView === 'ema') {
+        updateEMAView();
+    } else if (currentView === 'comparison') {
+        updateComparisonView();
+    }
+}
+
+// ============================================================================
+// COMBINED VIEW
+// ============================================================================
+
+function updateDualStatus() {
+    fetch('/api/dual_status')
         .then(r => r.json())
         .then(data => {
-            // Total Equity
-            document.getElementById('total-equity').textContent =
-                `$${data.total_equity.toFixed(2)}`;
+            const combined = data.combined;
 
-            // ROI with color
-            const roiElement = document.getElementById('roi');
-            const roiValue = data.roi.toFixed(2);
+            // Total Equity
+            document.getElementById('combined-equity').textContent =
+                `$${combined.total_equity.toFixed(2)}`;
+
+            // Individual equities
+            document.getElementById('combined-adx-equity').textContent =
+                `$${combined.adx_equity.toFixed(2)}`;
+            document.getElementById('combined-ema-equity').textContent =
+                `$${combined.ema_equity.toFixed(2)}`;
+
+            // Combined ROI
+            const roiElement = document.getElementById('combined-roi');
+            const roiValue = combined.combined_roi.toFixed(2);
             roiElement.textContent = `${roiValue > 0 ? '+' : ''}${roiValue}%`;
             roiElement.className = `metric-value ${roiValue >= 0 ? 'profit' : 'loss'}`;
 
             // Positions
-            document.getElementById('positions').textContent =
-                `${data.open_positions}/${data.total_pairs}`;
+            document.getElementById('combined-positions').textContent =
+                `${combined.total_positions}/8`;
+            document.getElementById('combined-adx-pos').textContent =
+                combined.adx_positions;
+            document.getElementById('combined-ema-pos').textContent =
+                combined.ema_positions;
 
-            // Mode
-            document.getElementById('bot-mode').textContent =
-                data.mode.toUpperCase();
+            // Distribution percentages
+            document.getElementById('combined-adx-pct').textContent =
+                `${combined.adx_percentage.toFixed(1)}%`;
+            document.getElementById('combined-ema-pct').textContent =
+                `${combined.ema_percentage.toFixed(1)}%`;
+
+            // Render distribution chart
+            renderDistributionChart(combined.adx_equity, combined.ema_equity);
         })
-        .catch(err => console.error('Error updating status:', err));
+        .catch(err => console.error('Error updating dual status:', err));
 }
 
-// Update all charts
-function updateCharts() {
-    SYMBOLS.forEach(symbol => {
-        fetch(`/api/chart/${symbol}`)
-            .then(r => r.json())
-            .then(data => {
-                if (data.error) {
-                    console.error(`Error loading chart for ${symbol}:`, data.error);
-                    return;
-                }
-                renderChart(symbol, data);
-            })
-            .catch(err => console.error(`Error fetching chart ${symbol}:`, err));
-    });
+function renderDistributionChart(adxEquity, emaEquity) {
+    const data = [{
+        values: [adxEquity, emaEquity],
+        labels: ['Bot ADX', 'Bot EMA'],
+        type: 'pie',
+        marker: {
+            colors: ['#3498db', '#e74c3c']
+        },
+        textinfo: 'label+percent+value',
+        texttemplate: '%{label}<br>$%{value:.2f}<br>%{percent}',
+        hovertemplate: '%{label}<br>$%{value:.2f}<br>%{percent}<extra></extra>'
+    }];
+
+    const layout = {
+        height: 400,
+        showlegend: true,
+        paper_bgcolor: 'rgba(0,0,0,0)',
+        plot_bgcolor: 'rgba(0,0,0,0)',
+        font: { color: '#ecf0f1' }
+    };
+
+    Plotly.newPlot('distribution-chart', data, layout, { responsive: true });
 }
 
-// Render candlestick chart with indicators and trade markers
-function renderChart(symbol, data) {
+// ============================================================================
+// ADX VIEW
+// ============================================================================
+
+function updateADXView() {
+    // Update ADX status
+    fetch('/api/bot/adx/status')
+        .then(r => r.json())
+        .then(data => {
+            document.getElementById('adx-equity').textContent =
+                `$${data.total_equity.toFixed(2)}`;
+
+            const roiElement = document.getElementById('adx-roi');
+            const roiValue = data.roi.toFixed(2);
+            roiElement.textContent = `${roiValue > 0 ? '+' : ''}${roiValue}%`;
+            roiElement.className = `metric-value ${roiValue >= 0 ? 'profit' : 'loss'}`;
+
+            document.getElementById('adx-positions').textContent =
+                `${data.open_positions}/${data.total_pairs}`;
+        })
+        .catch(err => console.error('Error updating ADX status:', err));
+
+    // Update ADX chart
+    updateADXChart(currentADXSymbol);
+
+    // Update ADX trades
+    updateADXTrades();
+}
+
+function updateADXChart(symbol) {
+    fetch(`/api/chart/${symbol}`)
+        .then(r => r.json())
+        .then(data => {
+            renderChart(data, 'adx-chart', 'ADX');
+        })
+        .catch(err => console.error('Error updating ADX chart:', err));
+}
+
+function updateADXTrades() {
+    fetch('/api/bot/adx/trades')
+        .then(r => r.json())
+        .then(trades => {
+            renderTradesTable(trades, 'adx-trades-table');
+        })
+        .catch(err => console.error('Error updating ADX trades:', err));
+}
+
+// ============================================================================
+// EMA VIEW
+// ============================================================================
+
+function updateEMAView() {
+    // Update EMA status
+    fetch('/api/bot/ema/status')
+        .then(r => r.json())
+        .then(data => {
+            document.getElementById('ema-equity').textContent =
+                `$${data.total_equity.toFixed(2)}`;
+
+            const roiElement = document.getElementById('ema-roi');
+            const roiValue = data.roi.toFixed(2);
+            roiElement.textContent = `${roiValue > 0 ? '+' : ''}${roiValue}%`;
+            roiElement.className = `metric-value ${roiValue >= 0 ? 'profit' : 'loss'}`;
+
+            document.getElementById('ema-positions').textContent =
+                `${data.open_positions}/${data.total_pairs}`;
+        })
+        .catch(err => console.error('Error updating EMA status:', err));
+
+    // Update EMA chart
+    updateEMAChart(currentEMASymbol);
+
+    // Update EMA trades
+    updateEMATrades();
+}
+
+function updateEMAChart(symbol) {
+    fetch(`/api/chart/${symbol}`)
+        .then(r => r.json())
+        .then(data => {
+            renderChart(data, 'ema-chart', 'EMA');
+        })
+        .catch(err => console.error('Error updating EMA chart:', err));
+}
+
+function updateEMATrades() {
+    fetch('/api/bot/ema/trades')
+        .then(r => r.json())
+        .then(trades => {
+            renderTradesTable(trades, 'ema-trades-table');
+        })
+        .catch(err => console.error('Error updating EMA trades:', err));
+}
+
+// ============================================================================
+// COMPARISON VIEW
+// ============================================================================
+
+function updateComparisonView() {
+    fetch('/api/comparison')
+        .then(r => r.json())
+        .then(data => {
+            renderROIComparison(data);
+            renderWinRateComparison(data);
+            renderComparisonTable(data);
+        })
+        .catch(err => console.error('Error updating comparison:', err));
+}
+
+function renderROIComparison(data) {
+    const chartData = [{
+        x: ['Bot ADX', 'Bot EMA'],
+        y: [data.adx.roi, data.ema.roi],
+        type: 'bar',
+        marker: {
+            color: ['#3498db', '#e74c3c']
+        },
+        text: [
+            `${data.adx.roi.toFixed(2)}%`,
+            `${data.ema.roi.toFixed(2)}%`
+        ],
+        textposition: 'auto'
+    }];
+
+    const layout = {
+        title: 'ROI (%)',
+        height: 300,
+        paper_bgcolor: 'rgba(0,0,0,0)',
+        plot_bgcolor: 'rgba(0,0,0,0)',
+        font: { color: '#ecf0f1' },
+        yaxis: { title: 'ROI %' }
+    };
+
+    Plotly.newPlot('roi-comparison-chart', chartData, layout, { responsive: true });
+}
+
+function renderWinRateComparison(data) {
+    const chartData = [{
+        x: ['Bot ADX', 'Bot EMA'],
+        y: [data.adx.win_rate, data.ema.win_rate],
+        type: 'bar',
+        marker: {
+            color: ['#3498db', '#e74c3c']
+        },
+        text: [
+            `${data.adx.win_rate.toFixed(1)}%`,
+            `${data.ema.win_rate.toFixed(1)}%`
+        ],
+        textposition: 'auto'
+    }];
+
+    const layout = {
+        title: 'Win Rate (%)',
+        height: 300,
+        paper_bgcolor: 'rgba(0,0,0,0)',
+        plot_bgcolor: 'rgba(0,0,0,0)',
+        font: { color: '#ecf0f1' },
+        yaxis: { title: 'Win Rate %', range: [0, 100] }
+    };
+
+    Plotly.newPlot('winrate-comparison-chart', chartData, layout, { responsive: true });
+}
+
+function renderComparisonTable(data) {
+    const tbody = document.getElementById('comparison-table-body');
+
+    const metrics = [
+        { name: 'Equity', adx: data.adx.equity, ema: data.ema.equity, format: '$' },
+        { name: 'ROI', adx: data.adx.roi, ema: data.ema.roi, format: '%' },
+        { name: 'Total Trades', adx: data.adx.total_trades, ema: data.ema.total_trades, format: '' },
+        { name: 'Wins', adx: data.adx.wins, ema: data.ema.wins, format: '' },
+        { name: 'Losses', adx: data.adx.losses, ema: data.ema.losses, format: '' },
+        { name: 'Win Rate', adx: data.adx.win_rate, ema: data.ema.win_rate, format: '%' },
+        { name: 'Total PnL', adx: data.adx.total_pnl, ema: data.ema.total_pnl, format: '$' }
+    ];
+
+    tbody.innerHTML = metrics.map(m => {
+        const diff = m.adx - m.ema;
+        const diffClass = diff > 0 ? 'profit' : (diff < 0 ? 'loss' : '');
+        const diffText = diff > 0 ? `+${diff.toFixed(2)}` : diff.toFixed(2);
+
+        return `
+            <tr>
+                <td>${m.name}</td>
+                <td class="adx-text">${m.format === '$' ? '$' : ''}${m.adx.toFixed(2)}${m.format === '%' ? '%' : ''}</td>
+                <td class="ema-text">${m.format === '$' ? '$' : ''}${m.ema.toFixed(2)}${m.format === '%' ? '%' : ''}</td>
+                <td class="${diffClass}">${m.format === '$' ? '$' : ''}${diffText}${m.format === '%' ? '%' : ''}</td>
+            </tr>
+        `;
+    }).join('');
+}
+
+// ============================================================================
+// CHART RENDERING (Shared)
+// ============================================================================
+
+function renderChart(data, containerId, botType) {
     const candles = data.candles;
-    const trades = data.trades;
+    const trades = data.trades || [];
 
-    // Update ADX indicator
-    const lastCandle = candles[candles.length - 1];
-    const adxValue = lastCandle.adx || 0;
-    const adxElement = document.getElementById(`${symbol.toLowerCase()}-adx`);
-
-    if (adxElement) {
-        adxElement.textContent = `ADX: ${adxValue.toFixed(1)}`;
-        // Color coding: verde si >25 (tendencia fuerte), rojo si <25 (débil)
-        if (adxValue > 25) {
-            adxElement.className = 'adx-indicator strong';
-        } else {
-            adxElement.className = 'adx-indicator weak';
-        }
-    }
-
-    // NUEVO: Separar velas cerradas de la vela actual
+    // Separate closed candles from current candle
     const closedCandles = candles.filter(c => !c.is_current);
     const currentCandle = candles.find(c => c.is_current);
 
-    // Candlestick trace (velas cerradas)
-    const candlestick = {
+    // Candlestick trace (closed candles)
+    const candlestickTrace = {
         x: closedCandles.map(c => c.timestamp),
         open: closedCandles.map(c => c.open),
         high: closedCandles.map(c => c.high),
         low: closedCandles.map(c => c.low),
         close: closedCandles.map(c => c.close),
         type: 'candlestick',
-        name: symbol,
+        name: data.symbol,
         increasing: { line: { color: '#26a69a' } },
         decreasing: { line: { color: '#ef5350' } }
     };
 
-    const traces = [candlestick];
+    const traces = [candlestickTrace];
 
-    // NUEVO: Vela actual (en progreso) con estilo diferente
+    // Current candle (if exists)
     if (currentCandle) {
-        const currentCandleTrace = {
+        traces.push({
             x: [currentCandle.timestamp],
             open: [currentCandle.open],
             high: [currentCandle.high],
@@ -108,165 +415,84 @@ function renderChart(symbol, data) {
             close: [currentCandle.close],
             type: 'candlestick',
             name: 'Actual (en progreso)',
-            increasing: {
-                line: { color: '#26a69a', width: 2, dash: 'dot' },
-                fillcolor: 'rgba(38, 166, 154, 0.3)'
-            },
-            decreasing: {
-                line: { color: '#ef5350', width: 2, dash: 'dot' },
-                fillcolor: 'rgba(239, 83, 80, 0.3)'
-            },
-            opacity: 0.7
-        };
-        traces.push(currentCandleTrace);
-    }
-
-    // MA50 line
-    const ma50 = {
-        x: candles.map(c => c.timestamp),
-        y: candles.map(c => c.ma),
-        type: 'scatter',
-        mode: 'lines',
-        name: 'MA50',
-        line: { color: '#ff6b35', width: 1.5 },
-        yaxis: 'y'
-    };
-
-    // MA200 line
-    const ma200 = {
-        x: candles.map(c => c.timestamp),
-        y: candles.map(c => c.long_ma),
-        type: 'scatter',
-        mode: 'lines',
-        name: 'MA200',
-        line: { color: '#4ecdc4', width: 1.5 },
-        yaxis: 'y'
-    };
-
-    traces.push(ma50, ma200);
-
-    // Buy markers
-    const buys = trades.filter(t => t.type === 'buy');
-    if (buys.length > 0) {
-        traces.push({
-            x: buys.map(t => t.timestamp),
-            y: buys.map(t => t.price),
-            mode: 'markers',
-            name: 'Compra',
-            marker: {
-                color: '#26a69a',
-                size: 12,
-                symbol: 'triangle-up',
-                line: { color: '#fff', width: 1 }
-            },
-            yaxis: 'y'
+            increasing: { line: { color: '#26a69a', width: 1, dash: 'dot' }, fillcolor: 'rgba(38, 166, 154, 0.3)' },
+            decreasing: { line: { color: '#ef5350', width: 1, dash: 'dot' }, fillcolor: 'rgba(239, 83, 80, 0.3)' }
         });
     }
 
-    // Sell markers
-    const sells = trades.filter(t => t.type === 'sell');
-    if (sells.length > 0) {
-        traces.push({
-            x: sells.map(t => t.timestamp),
-            y: sells.map(t => t.price),
-            mode: 'markers',
-            name: 'Venta',
-            marker: {
-                color: '#ef5350',
-                size: 12,
-                symbol: 'triangle-down',
-                line: { color: '#fff', width: 1 }
-            },
-            yaxis: 'y'
-        });
-    }
+    // Add MA lines
+    traces.push({
+        x: closedCandles.map(c => c.timestamp),
+        y: closedCandles.map(c => c.ma),
+        type: 'scatter',
+        mode: 'lines',
+        name: 'MA 50',
+        line: { color: '#f39c12', width: 1 }
+    });
 
     const layout = {
-        title: {
-            text: `${symbol}/USDT - 4h`,
-            font: { color: '#c9d1d9', size: 16 }
-        },
-        xaxis: {
-            rangeslider: { visible: false },
-            gridcolor: '#30363d',
-            color: '#8b949e'
-        },
-        yaxis: {
-            title: 'Price (USDT)',
-            gridcolor: '#30363d',
-            color: '#8b949e'
-        },
-        plot_bgcolor: '#0d1117',
-        paper_bgcolor: '#161b22',
-        font: { color: '#c9d1d9' },
-        margin: { l: 50, r: 50, t: 40, b: 40 },
-        legend: {
-            x: 0,
-            y: 1,
-            bgcolor: 'rgba(0,0,0,0.3)'
-        },
-        hovermode: 'x unified'
+        height: 500,
+        xaxis: { rangeslider: { visible: false } },
+        paper_bgcolor: 'rgba(0,0,0,0)',
+        plot_bgcolor: 'rgba(0,0,0,0)',
+        font: { color: '#ecf0f1' }
     };
 
-    const config = {
-        responsive: true,
-        displayModeBar: true,
-        displaylogo: false,
-        modeBarButtonsToRemove: ['select2d', 'lasso2d', 'toggleSpikelines']
-    };
-
-    Plotly.newPlot(
-        `chart-${symbol.toLowerCase()}`,
-        traces,
-        layout,
-        config
-    );
+    Plotly.newPlot(containerId, traces, layout, { responsive: true });
 }
 
-// Update trades table
-function updateTrades() {
-    fetch('/api/trades')
-        .then(r => r.json())
-        .then(trades => {
-            if (trades.length === 0) {
-                return;
-            }
+// ============================================================================
+// TRADES TABLE RENDERING (Shared)
+// ============================================================================
 
-            const tbody = document.getElementById('trades-body');
-            tbody.innerHTML = '';
+function renderTradesTable(trades, containerId) {
+    const container = document.getElementById(containerId);
 
-            // Update total trades count
-            const buyTrades = trades.filter(t => t.type === 'buy').length;
-            document.getElementById('total-trades').textContent = buyTrades;
+    if (!trades || trades.length === 0) {
+        container.innerHTML = '<p style="text-align:center; color:#95a5a6;">No hay trades registrados aún</p>';
+        return;
+    }
 
-            // Show most recent trades first
-            trades.reverse().slice(0, 20).forEach(trade => {
-                const row = document.createElement('tr');
+    const html = `
+        <table>
+            <thead>
+                <tr>
+                    <th>Fecha</th>
+                    <th>Par</th>
+                    <th>Tipo</th>
+                    <th>Precio</th>
+                    <th>Cantidad</th>
+                    <th>PnL</th>
+                    <th>Razón</th>
+                </tr>
+            </thead>
+            <tbody>
+                ${trades.reverse().map(t => `
+                    <tr>
+                        <td>${new Date(t.timestamp).toLocaleString('es-ES')}</td>
+                        <td>${t.symbol}</td>
+                        <td class="${t.type === 'buy' ? 'buy-badge' : 'sell-badge'}">${t.type.toUpperCase()}</td>
+                        <td>$${parseFloat(t.price).toFixed(2)}</td>
+                        <td>${parseFloat(t.qty).toFixed(6)}</td>
+                        <td class="${parseFloat(t.pnl) >= 0 ? 'profit' : 'loss'}">
+                            ${parseFloat(t.pnl) >= 0 ? '+' : ''}$${parseFloat(t.pnl).toFixed(2)}
+                        </td>
+                        <td>${t.reason || '-'}</td>
+                    </tr>
+                `).join('')}
+            </tbody>
+        </table>
+    `;
 
-                const typeClass = trade.type === 'buy' ? 'buy' : 'sell';
-                const pnlClass = trade.pnl >= 0 ? 'profit' : 'loss';
-
-                row.innerHTML = `
-                    <td>${new Date(trade.timestamp).toLocaleString()}</td>
-                    <td><strong>${trade.symbol.replace('/USDT', '')}</strong></td>
-                    <td class="${typeClass}">${trade.type.toUpperCase()}</td>
-                    <td>$${parseFloat(trade.price).toFixed(4)}</td>
-                    <td>${parseFloat(trade.qty).toFixed(6)}</td>
-                    <td>${trade.reason || '-'}</td>
-                    <td class="${pnlClass}">
-                        ${trade.pnl !== 0 ? (trade.pnl > 0 ? '+' : '') + trade.pnl.toFixed(2) : '-'}
-                    </td>
-                `;
-
-                tbody.appendChild(row);
-            });
-        })
-        .catch(err => console.error('Error updating trades:', err));
+    container.innerHTML = html;
 }
 
-// Update last update time
+// ============================================================================
+// UTILITY FUNCTIONS
+// ============================================================================
+
 function updateLastUpdateTime() {
     const now = new Date();
     document.getElementById('last-update').textContent =
-        now.toLocaleTimeString();
+        now.toLocaleTimeString('es-ES');
 }

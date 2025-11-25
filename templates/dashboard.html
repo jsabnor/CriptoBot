@@ -4,7 +4,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>🤖 Trading Bot Dashboard</title>
+    <title>🤖 Trading Bot Dashboard v1.9.0 - Dual Strategy</title>
     <script src="https://cdn.plot.ly/plotly-2.27.0.min.js"></script>
     <link rel="stylesheet" href="/static/style.css">
 </head>
@@ -13,8 +13,8 @@
     <!-- Header -->
     <div class="header">
         <div>
-            <h1>🤖 Trading Bot Dashboard</h1>
-            <p class="subtitle">Timeframe: 4h | Pares: ETH, XRP, BNB, SOL</p>
+            <h1>🤖 Trading Bot Dashboard v1.9.0</h1>
+            <p class="subtitle">Dual Strategy: ADX + EMA Crossover | Timeframe: 4h</p>
         </div>
         <div class="status-container">
             <span id="bot-status" class="status-badge running">● Running</span>
@@ -22,72 +22,196 @@
         </div>
     </div>
 
-    <!-- Metrics Cards -->
-    <div class="metrics">
-        <div class="card">
-            <div class="card-icon">💰</div>
-            <h3>Total Equity</h3>
-            <p id="total-equity" class="metric-value">$200.00</p>
+    <!-- Tabs Navigation -->
+    <div class="tabs-container">
+        <button class="tab active" data-view="combined">
+            📊 Vista Combinada
+        </button>
+        <button class="tab" data-view="adx">
+            🎯 Bot ADX
+        </button>
+        <button class="tab" data-view="ema">
+            📈 Bot EMA
+        </button>
+        <button class="tab" data-view="comparison">
+            ⚖️ Comparación
+        </button>
+    </div>
+
+    <!-- ============================================ -->
+    <!-- VISTA COMBINADA -->
+    <!-- ============================================ -->
+    <div id="combined-view" class="view active">
+        <!-- Metrics Cards -->
+        <div class="metrics">
+            <div class="card">
+                <div class="card-icon">💰</div>
+                <h3>Equity Total</h3>
+                <p id="combined-equity" class="metric-value">$200.00</p>
+                <small class="metric-detail">
+                    <span class="adx-text">ADX: <span id="combined-adx-equity">$100</span></span> |
+                    <span class="ema-text">EMA: <span id="combined-ema-equity">$100</span></span>
+                </small>
+            </div>
+            <div class="card">
+                <div class="card-icon">📈</div>
+                <h3>ROI Combinado</h3>
+                <p id="combined-roi" class="metric-value">0.00%</p>
+                <small class="metric-detail">Sobre capital inicial $200</small>
+            </div>
+            <div class="card">
+                <div class="card-icon">📍</div>
+                <h3>Posiciones Totales</h3>
+                <p id="combined-positions" class="metric-value">0/8</p>
+                <small class="metric-detail">
+                    ADX: <span id="combined-adx-pos">0</span> |
+                    EMA: <span id="combined-ema-pos">0</span>
+                </small>
+            </div>
+            <div class="card">
+                <div class="card-icon">⚖️</div>
+                <h3>Distribución</h3>
+                <p class="metric-value">
+                    <span id="combined-adx-pct" class="adx-text">50%</span> /
+                    <span id="combined-ema-pct" class="ema-text">50%</span>
+                </p>
+                <small class="metric-detail">ADX / EMA</small>
+            </div>
         </div>
-        <div class="card">
-            <div class="card-icon">📈</div>
-            <h3>ROI Total</h3>
-            <p id="roi" class="metric-value">0.00%</p>
-        </div>
-        <div class="card">
-            <div class="card-icon">📍</div>
-            <h3>Posiciones</h3>
-            <p id="positions" class="metric-value">0/4</p>
-        </div>
-        <div class="card">
-            <div class="card-icon">📊</div>
-            <h3>Total Trades</h3>
-            <p id="total-trades" class="metric-value">0</p>
+
+        <!-- Distribution Chart -->
+        <div class="chart-container">
+            <h2>📊 Distribución de Capital</h2>
+            <div id="distribution-chart"></div>
         </div>
     </div>
 
-    <!-- Charts Grid -->
-    <div class="charts-grid">
-        <div class="chart-container">
-            <div class="adx-indicator" id="eth-adx">ADX: --</div>
-            <div id="chart-eth" class="chart"></div>
+    <!-- ============================================ -->
+    <!-- VISTA BOT ADX -->
+    <!-- ============================================ -->
+    <div id="adx-view" class="view">
+        <!-- ADX Metrics -->
+        <div class="metrics">
+            <div class="card adx-card">
+                <div class="card-icon">💰</div>
+                <h3>Equity ADX</h3>
+                <p id="adx-equity" class="metric-value">$100.00</p>
+            </div>
+            <div class="card adx-card">
+                <div class="card-icon">📈</div>
+                <h3>ROI ADX</h3>
+                <p id="adx-roi" class="metric-value">0.00%</p>
+            </div>
+            <div class="card adx-card">
+                <div class="card-icon">📍</div>
+                <h3>Posiciones</h3>
+                <p id="adx-positions" class="metric-value">0/4</p>
+            </div>
+            <div class="card adx-card">
+                <div class="card-icon">📊</div>
+                <h3>Estrategia</h3>
+                <p class="metric-value" style="font-size: 1.2rem;">ADX + ATR</p>
+            </div>
         </div>
-        <div class="chart-container">
-            <div class="adx-indicator" id="xrp-adx">ADX: --</div>
-            <div id="chart-xrp" class="chart"></div>
+
+        <!-- ADX Chart Selector -->
+        <div class="chart-selector">
+            <h2>📈 Gráfico Bot ADX</h2>
+            <select id="adx-symbol-select" class="symbol-select">
+                <option value="ETH">ETH/USDT</option>
+                <option value="XRP">XRP/USDT</option>
+                <option value="BNB">BNB/USDT</option>
+                <option value="SOL">SOL/USDT</option>
+            </select>
         </div>
-        <div class="chart-container">
-            <div class="adx-indicator" id="bnb-adx">ADX: --</div>
-            <div id="chart-bnb" class="chart"></div>
-        </div>
-        <div class="chart-container">
-            <div class="adx-indicator" id="sol-adx">ADX: --</div>
-            <div id="chart-sol" class="chart"></div>
+        <div id="adx-chart" class="chart-container"></div>
+
+        <!-- ADX Trades Table -->
+        <div class="trades-section">
+            <h2>📋 Últimos Trades - Bot ADX</h2>
+            <div id="adx-trades-table" class="trades-table"></div>
         </div>
     </div>
 
-    <!-- Trades Table -->
-    <div class="trades-section">
-        <h2>📋 Trades Recientes</h2>
-        <div class="table-container">
-            <table id="trades-table">
+    <!-- ============================================ -->
+    <!-- VISTA BOT EMA -->
+    <!-- ============================================ -->
+    <div id="ema-view" class="view">
+        <!-- EMA Metrics -->
+        <div class="metrics">
+            <div class="card ema-card">
+                <div class="card-icon">💰</div>
+                <h3>Equity EMA</h3>
+                <p id="ema-equity" class="metric-value">$100.00</p>
+            </div>
+            <div class="card ema-card">
+                <div class="card-icon">📈</div>
+                <h3>ROI EMA</h3>
+                <p id="ema-roi" class="metric-value">0.00%</p>
+            </div>
+            <div class="card ema-card">
+                <div class="card-icon">📍</div>
+                <h3>Posiciones</h3>
+                <p id="ema-positions" class="metric-value">0/4</p>
+            </div>
+            <div class="card ema-card">
+                <div class="card-icon">📊</div>
+                <h3>Estrategia</h3>
+                <p class="metric-value" style="font-size: 1.2rem;">EMA 15/30</p>
+            </div>
+        </div>
+
+        <!-- EMA Chart Selector -->
+        <div class="chart-selector">
+            <h2>📈 Gráfico Bot EMA</h2>
+            <select id="ema-symbol-select" class="symbol-select">
+                <option value="ETH">ETH/USDT</option>
+                <option value="XRP">XRP/USDT</option>
+                <option value="BNB">BNB/USDT</option>
+                <option value="SOL">SOL/USDT</option>
+            </select>
+        </div>
+        <div id="ema-chart" class="chart-container"></div>
+
+        <!-- EMA Trades Table -->
+        <div class="trades-section">
+            <h2>📋 Últimos Trades - Bot EMA</h2>
+            <div id="ema-trades-table" class="trades-table"></div>
+        </div>
+    </div>
+
+    <!-- ============================================ -->
+    <!-- VISTA COMPARACIÓN -->
+    <!-- ============================================ -->
+    <div id="comparison-view" class="view">
+        <h2>⚖️ Comparación de Rendimiento</h2>
+
+        <!-- Comparison Charts -->
+        <div class="comparison-grid">
+            <div class="chart-container">
+                <h3>ROI Comparativo</h3>
+                <div id="roi-comparison-chart"></div>
+            </div>
+            <div class="chart-container">
+                <h3>Win Rate Comparativo</h3>
+                <div id="winrate-comparison-chart"></div>
+            </div>
+        </div>
+
+        <!-- Comparison Table -->
+        <div class="comparison-table-container">
+            <h3>📊 Métricas Detalladas</h3>
+            <table class="comparison-table">
                 <thead>
                     <tr>
-                        <th>Timestamp</th>
-                        <th>Par</th>
-                        <th>Tipo</th>
-                        <th>Precio</th>
-                        <th>Cantidad</th>
-                        <th>Razón</th>
-                        <th>P&L</th>
+                        <th>Métrica</th>
+                        <th class="adx-text">Bot ADX</th>
+                        <th class="ema-text">Bot EMA</th>
+                        <th>Diferencia</th>
                     </tr>
                 </thead>
-                <tbody id="trades-body">
-                    <tr>
-                        <td colspan="7" style="text-align: center; opacity: 0.5;">
-                            Esperando trades...
-                        </td>
-                    </tr>
+                <tbody id="comparison-table-body">
+                    <!-- Populated by JavaScript -->
                 </tbody>
             </table>
         </div>
@@ -95,10 +219,11 @@
 
     <!-- Footer -->
     <div class="footer">
+        <p>🤖 Trading Bot Dashboard v1.9.0 | Actualización automática cada 30s</p>
         <p>Última actualización: <span id="last-update">--:--:--</span></p>
-        <p>Auto-refresh: cada 30 segundos</p>
     </div>
 
+    <!-- Scripts -->
     <script src="/static/dashboard.js"></script>
 </body>
 

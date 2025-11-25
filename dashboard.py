@@ -67,6 +67,101 @@ def calculate_indicators(df):
     return df
 
 
+# ============================================================================
+# DUAL BOT HELPER FUNCTIONS
+# ============================================================================
+
+def load_bot_state(bot_name):
+    """
+    Carga el estado de un bot específico
+    
+    Args:
+        bot_name: 'adx' o 'ema'
+    
+    Returns:
+        dict con el estado del bot o None si no existe
+    """
+    filename = 'bot_state.json' if bot_name == 'adx' else 'bot_state_ema.json'
+    
+    if os.path.exists(filename):
+        try:
+            with open(filename, 'r') as f:
+                return json.load(f)
+        except Exception as e:
+            print(f"Error loading {filename}: {e}")
+            return None
+    return None
+
+
+def load_bot_trades(bot_name):
+    """
+    Carga los trades de un bot específico
+    
+    Args:
+        bot_name: 'adx' o 'ema'
+    
+    Returns:
+        DataFrame con los trades o DataFrame vacío
+    """
+    filename = 'trades_production.csv' if bot_name == 'adx' else 'trades_ema.csv'
+    
+    if os.path.exists(filename):
+        try:
+            return pd.read_csv(filename)
+        except Exception as e:
+            print(f"Error loading {filename}: {e}")
+            return pd.DataFrame()
+    return pd.DataFrame()
+
+
+def calculate_combined_metrics(adx_state, ema_state):
+    """
+    Calcula métricas combinadas de ambos bots
+    
+    Args:
+        adx_state: Estado del bot ADX
+        ema_state: Estado del bot EMA
+    
+    Returns:
+        dict con métricas combinadas
+    """
+    # Equity
+    adx_equity = adx_state.get('total_equity', 0) if adx_state else 0
+    
+    # Para bot EMA, calcular equity total desde el dict de equity
+    if ema_state:
+        ema_equity_dict = ema_state.get('equity', {})
+        ema_equity = sum(ema_equity_dict.values()) if isinstance(ema_equity_dict, dict) else 0
+    else:
+        ema_equity = 0
+    
+    total_equity = adx_equity + ema_equity
+    
+    # Capital inicial (ajustar según configuración)
+    initial_capital = 200.0  # 100 EUR por bot
+    
+    # ROI
+    combined_roi = ((total_equity - initial_capital) / initial_capital * 100) if initial_capital > 0 else 0
+    
+    # Posiciones
+    adx_positions = sum(1 for pos in adx_state.get('positions', {}).values() if pos) if adx_state else 0
+    ema_positions = sum(1 for pos in ema_state.get('positions', {}).values() if pos) if ema_state else 0
+    
+    return {
+        'total_equity': total_equity,
+        'adx_equity': adx_equity,
+        'ema_equity': ema_equity,
+        'combined_roi': combined_roi,
+        'total_positions': adx_positions + ema_positions,
+        'adx_positions': adx_positions,
+        'ema_positions': ema_positions,
+        'adx_percentage': (adx_equity / total_equity * 100) if total_equity > 0 else 0,
+        'ema_percentage': (ema_equity / total_equity * 100) if total_equity > 0 else 0
+    }
+
+
+
+
 @app.route('/')
 def index():
     """Página principal del dashboard"""
@@ -221,6 +316,175 @@ def api_chart(symbol):
         return jsonify({'error': str(e)}), 500
 
 
+
+
+# ============================================================================
+# DUAL BOT API ENDPOINTS
+# ============================================================================
+
+@app.route('/api/dual_status')
+def api_dual_status():
+    """Estado combinado de ambos bots"""
+    try:
+        adx_state = load_bot_state('adx')
+        ema_state = load_bot_state('ema')
+        
+        combined = calculate_combined_metrics(adx_state, ema_state)
+        
+        return jsonify({
+            'combined': combined,
+            'adx': {
+                'active': adx_state is not None,
+                'equity': combined['adx_equity'],
+                'positions': combined['adx_positions'],
+                'timestamp': adx_state.get('timestamp') if adx_state else None
+            },
+            'ema': {
+                'active': ema_state is not None,
+                'equity': combined['ema_equity'],
+                'positions': combined['ema_positions'],
+                'timestamp': ema_state.get('last_update') if ema_state else None
+            }
+        })
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/api/bot/<bot_name>/status')
+def api_bot_status(bot_name):
+    """Estado individual de un bot específico"""
+    try:
+        if bot_name not in ['adx', 'ema']:
+            return jsonify({'error': 'Invalid bot name. Use "adx" or "ema"'}), 400
+        
+        state = load_bot_state(bot_name)
+        
+        if not state:
+            return jsonify({'error': f'No state file found for bot {bot_name}'}), 404
+        
+        # Calcular métricas según el bot
+        if bot_name == 'adx':
+            total_equity = state.get('total_equity', 0)
+            positions = state.get('positions', {})
+        else:  # ema
+            equity_dict = state.get('equity', {})
+            total_equity = sum(equity_dict.values()) if isinstance(equity_dict, dict) else 0
+            positions = state.get('positions', {})
+        
+        open_positions = sum(1 for pos in positions.values() if pos)
+        
+        # Capital inicial por bot
+        initial_capital = 100.0
+        roi = ((total_equity - initial_capital) / initial_capital * 100) if initial_capital > 0 else 0
+        
+        return jsonify({
+            'bot_name': bot_name,
+            'total_equity': total_equity,
+            'roi': roi,
+            'open_positions': open_positions,
+            'total_pairs': 4,
+            'mode': state.get('mode', 'paper'),
+            'timestamp': state.get('timestamp') or state.get('last_update'),
+            'positions': positions
+        })
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/api/bot/<bot_name>/trades')
+def api_bot_trades(bot_name):
+    """Trades de un bot específico"""
+    try:
+        if bot_name not in ['adx', 'ema']:
+            return jsonify({'error': 'Invalid bot name. Use "adx" or "ema"'}), 400
+        
+        df = load_bot_trades(bot_name)
+        
+        if df.empty:
+            return jsonify([])
+        
+        # Últimos 20 trades
+        df_recent = df.tail(20).copy()
+        trades_list = df_recent.to_dict('records')
+        
+        return jsonify(trades_list)
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/api/comparison')
+def api_comparison():
+    """Datos de comparación entre ambos bots"""
+    try:
+        adx_trades = load_bot_trades('adx')
+        ema_trades = load_bot_trades('ema')
+        
+        adx_state = load_bot_state('adx')
+        ema_state = load_bot_state('ema')
+        
+        # Calcular métricas de trades
+        def calculate_trade_metrics(df):
+            if df.empty:
+                return {
+                    'total_trades': 0,
+                    'wins': 0,
+                    'losses': 0,
+                    'win_rate': 0,
+                    'total_pnl': 0,
+                    'avg_pnl': 0
+                }
+            
+            sells = df[df['type'] == 'sell']
+            if sells.empty:
+                return {
+                    'total_trades': 0,
+                    'wins': 0,
+                    'losses': 0,
+                    'win_rate': 0,
+                    'total_pnl': 0,
+                    'avg_pnl': 0
+                }
+            
+            wins = len(sells[sells['pnl'] > 0])
+            losses = len(sells[sells['pnl'] <= 0])
+            total = len(sells)
+            
+            return {
+                'total_trades': total,
+                'wins': wins,
+                'losses': losses,
+                'win_rate': (wins / total * 100) if total > 0 else 0,
+                'total_pnl': sells['pnl'].sum(),
+                'avg_pnl': sells['pnl'].mean()
+            }
+        
+        adx_metrics = calculate_trade_metrics(adx_trades)
+        ema_metrics = calculate_trade_metrics(ema_trades)
+        
+        # Equity y ROI
+        adx_equity = adx_state.get('total_equity', 100) if adx_state else 100
+        ema_equity_dict = ema_state.get('equity', {}) if ema_state else {}
+        ema_equity = sum(ema_equity_dict.values()) if isinstance(ema_equity_dict, dict) else 100
+        
+        adx_roi = ((adx_equity - 100) / 100 * 100)
+        ema_roi = ((ema_equity - 100) / 100 * 100)
+        
+        return jsonify({
+            'adx': {
+                'equity': adx_equity,
+                'roi': adx_roi,
+                **adx_metrics
+            },
+            'ema': {
+                'equity': ema_equity,
+                'roi': ema_roi,
+                **ema_metrics
+            }
+        })
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
 @app.route('/api/health')
 def api_health():
     """Health check endpoint"""
@@ -231,3 +495,4 @@ if __name__ == '__main__':
     # Ejecutar Flask en modo desarrollo
     # En producción, usar gunicorn o similar
     app.run(host='0.0.0.0', port=5000, debug=False)
+
