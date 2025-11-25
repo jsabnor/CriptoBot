@@ -230,7 +230,7 @@ class TradingBot:
         
         return qty
     
-    def execute_buy(self, symbol, price, qty, sl_price, tp_price):
+    def execute_buy(self, symbol, price, qty, sl_price, tp_price, adx=None, ma_status=None):
         """Ejecuta orden de compra."""
         cost = qty * price * (1 + self.COMMISSION)
         
@@ -247,13 +247,13 @@ class TradingBot:
                 self.telegram.notify_error(f"Error comprando {symbol}: {str(e)}")
                 success = False
         
-        # Notificar por Telegram
+        # Notificar por Telegram con indicadores técnicos
         if success and self.telegram.enabled:
-            self.telegram.notify_buy(symbol, price, qty, cost, sl_price, tp_price)
+            self.telegram.notify_buy(symbol, price, qty, cost, sl_price, tp_price, adx, ma_status)
         
         return success
     
-    def execute_sell(self, symbol, price, qty, reason, entry_price, pnl):
+    def execute_sell(self, symbol, price, qty, reason, entry_price, pnl, duration=None):
         """Ejecuta orden de venta."""
         if self.MODE == 'paper':
             print(f"📉 PAPER SELL: {symbol} | Qty: {qty:.8f} | Price: ${price:.2f} | Reason: {reason}")
@@ -268,12 +268,30 @@ class TradingBot:
                 self.telegram.notify_error(f"Error vendiendo {symbol}: {str(e)}")
                 success = False
         
-        # Notificar por Telegram
+        # Notificar por Telegram con información completa
         if success and self.telegram.enabled:
             roi = ((price - entry_price) / entry_price) * 100 if entry_price > 0 else 0
-            self.telegram.notify_sell(symbol, price, qty, reason, pnl, roi)
+            self.telegram.notify_sell(symbol, price, qty, reason, pnl, roi, entry_price, duration)
         
         return success
+    
+    def calculate_trade_duration(self, entry_time):
+        """Calcula la duración del trade en formato legible."""
+        if not entry_time:
+            return None
+        
+        duration = datetime.now() - entry_time
+        hours = duration.total_seconds() / 3600
+        
+        if hours < 1:
+            minutes = int(duration.total_seconds() / 60)
+            return f"{minutes}m"
+        elif hours < 24:
+            return f"{int(hours)}h {int((hours % 1) * 60)}m"
+        else:
+            days = int(hours / 24)
+            remaining_hours = int(hours % 24)
+            return f"{days}d {remaining_hours}h"
     
     def process_symbol(self, symbol):
         """Procesa un símbolo (chequea entradas/salidas)."""
@@ -303,7 +321,8 @@ class TradingBot:
             if low <= tp_price:
                 proceeds = position['size'] * tp_price * (1 - self.COMMISSION)
                 pnl = proceeds - (position['size'] * position['entry_price'])
-                self.execute_sell(symbol, tp_price, position['size'], 'TP', position['entry_price'], pnl)
+                duration = self.calculate_trade_duration(position.get('entry_time'))
+                self.execute_sell(symbol, tp_price, position['size'], 'TP', position['entry_price'], pnl, duration)
                 self.equity[symbol] += proceeds
                 self.log_trade(symbol, 'sell', tp_price, position['size'], 'TP', pnl)
                 self.positions[symbol] = None
@@ -313,7 +332,8 @@ class TradingBot:
             if close < current['ma']:
                 proceeds = position['size'] * close * (1 - self.COMMISSION)
                 pnl = proceeds - (position['size'] * position['entry_price'])
-                self.execute_sell(symbol, close, position['size'], 'MA_SL', position['entry_price'], pnl)
+                duration = self.calculate_trade_duration(position.get('entry_time'))
+                self.execute_sell(symbol, close, position['size'], 'MA_SL', position['entry_price'], pnl, duration)
                 self.equity[symbol] += proceeds
                 self.log_trade(symbol, 'sell', close, position['size'], 'MA_SL', pnl)
                 self.positions[symbol] = None
@@ -325,7 +345,8 @@ class TradingBot:
             if low <= position['sl_price']:
                 proceeds = position['size'] * position['sl_price'] * (1 - self.COMMISSION)
                 pnl = proceeds - (position['size'] * position['entry_price'])
-                self.execute_sell(symbol, position['sl_price'], position['size'], 'SL', position['entry_price'], pnl)
+                duration = self.calculate_trade_duration(position.get('entry_time'))
+                self.execute_sell(symbol, position['sl_price'], position['size'], 'SL', position['entry_price'], pnl, duration)
                 self.equity[symbol] += proceeds
                 self.log_trade(symbol, 'sell', position['sl_price'], position['size'], 'SL', pnl)
                 self.positions[symbol] = None
@@ -335,7 +356,8 @@ class TradingBot:
             if close < open_price and close < current['long_ma']:
                 proceeds = position['size'] * close * (1 - self.COMMISSION)
                 pnl = proceeds - (position['size'] * position['entry_price'])
-                self.execute_sell(symbol, close, position['size'], 'bearish', position['entry_price'], pnl)
+                duration = self.calculate_trade_duration(position.get('entry_time'))
+                self.execute_sell(symbol, close, position['size'], 'bearish', position['entry_price'], pnl, duration)
                 self.equity[symbol] += proceeds
                 self.log_trade(symbol, 'sell', close, position['size'], 'bearish', pnl)
                 self.positions[symbol] = None
@@ -346,6 +368,11 @@ class TradingBot:
             if self.check_entry_signal(df):
                 close = current['close']
                 atr = current['atr']
+                adx = current['adx']
+                ma = current['ma']
+                
+                # Determinar estado de MA
+                ma_status = 'bullish' if close > ma else 'bearish'
                 
                 qty = self.calculate_position_size(symbol, close, atr)
                 if qty > 0:
@@ -355,13 +382,14 @@ class TradingBot:
                         sl_price = close - atr * self.ATR_MULTIPLIER
                         tp_price = close * (1 + self.TRAILING_TP_PERCENT)  # TP estimado inicial
                         
-                        if self.execute_buy(symbol, close, qty, sl_price, tp_price):
+                        if self.execute_buy(symbol, close, qty, sl_price, tp_price, adx, ma_status):
                             self.equity[symbol] -= cost
                             self.positions[symbol] = {
                                 'size': qty,
                                 'entry_price': close,
                                 'sl_price': sl_price,
-                                'max_price': current['high']
+                                'max_price': current['high'],
+                                'entry_time': datetime.now()  # Añadir timestamp de entrada
                             }
                             self.log_trade(symbol, 'buy', close, qty, '', 0)
     

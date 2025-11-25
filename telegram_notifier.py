@@ -17,13 +17,14 @@ class TelegramNotifier:
         if self.enabled:
             self.api_url = f"https://api.telegram.org/bot{self.token}/sendMessage"
     
-    def send_message(self, text, silent=False):
+    def send_message(self, text, silent=False, buttons=None):
         """
         Envía un mensaje a Telegram.
         
         Args:
             text: Texto del mensaje (soporta HTML)
             silent: Si es True, la notificación es silenciosa
+            buttons: Lista de botones inline [[{'text': 'Label', 'url': 'URL'}]]
         
         Returns:
             bool: True si se envió correctamente
@@ -32,14 +33,20 @@ class TelegramNotifier:
             return False
             
         try:
+            payload = {
+                'chat_id': self.chat_id,
+                'text': text,
+                'parse_mode': 'HTML',
+                'disable_notification': silent
+            }
+            
+            # Añadir botones si se proporcionan
+            if buttons:
+                payload['reply_markup'] = {'inline_keyboard': buttons}
+            
             response = requests.post(
                 self.api_url,
-                json={
-                    'chat_id': self.chat_id,
-                    'text': text,
-                    'parse_mode': 'HTML',
-                    'disable_notification': silent
-                },
+                json=payload,
                 timeout=10
             )
             return response.status_code == 200
@@ -70,9 +77,9 @@ class TelegramNotifier:
         
         self.send_message(text)
     
-    def notify_buy(self, symbol, price, qty, cost, sl_price, tp_price):
+    def notify_buy(self, symbol, price, qty, cost, sl_price, tp_price, adx=None, ma_status=None):
         """
-        Notificación de compra.
+        Notificación de compra mejorada.
         
         Args:
             symbol: Par (ej: 'ETH/USDT')
@@ -81,28 +88,69 @@ class TelegramNotifier:
             cost: Costo total
             sl_price: Precio de stop loss
             tp_price: Precio de take profit estimado
+            adx: Valor del ADX (opcional)
+            ma_status: Estado de MA ('bullish' o 'bearish', opcional)
         """
         # Calcular potenciales
         potential_loss = ((sl_price - price) / price) * 100
         potential_gain = ((tp_price - price) / price) * 100
+        risk_reward = abs(potential_gain / potential_loss) if potential_loss != 0 else 0
         
-        text = f"""📈 <b>COMPRA EJECUTADA</b>
+        # Emojis contextuales
+        adx_emoji = '🔥' if adx and adx > 30 else '✅' if adx and adx > 25 else '⚡'
+        ma_emoji = '✅' if ma_status == 'bullish' else '⚠️' if ma_status else '➖'
+        
+        # Construir mensaje
+        symbol_clean = symbol.replace('/USDT', '')
+        text = f"""🟢 <b>COMPRA EJECUTADA</b>
 
-🪙 Par: <b>{symbol.replace('/USDT', '')}</b>
+━━━━━━━━━━━━━━━━━━━━
+🪙 <b>{symbol_clean}/USDT</b>
+━━━━━━━━━━━━━━━━━━━━
+
 💵 Precio: <b>${price:.4f}</b>
-📦 Cantidad: {qty:.6f}
-💰 Invertido: ${cost:.2f}
+📦 Cantidad: <b>{qty:.6f}</b>
+💰 Invertido: <b>${cost:.2f}</b>"""
 
-🛑 Stop Loss: ${sl_price:.4f} ({potential_loss:.1f}%)
-🎯 Take Profit: ${tp_price:.4f} (+{potential_gain:.1f}%)
+        # Añadir indicadores si están disponibles
+        if adx is not None or ma_status is not None:
+            text += f"""
 
-⏰ {datetime.now().strftime('%H:%M:%S')}"""
+📊 <b>Indicadores:</b>"""
+            if adx is not None:
+                trend_text = 'Muy Fuerte' if adx > 30 else 'Fuerte' if adx > 25 else 'Moderada'
+                text += f"""
+├─ ADX: {adx:.1f} {adx_emoji}
+├─ Tendencia: {trend_text}"""
+            if ma_status is not None:
+                ma_text = 'Alcista' if ma_status == 'bullish' else 'Bajista'
+                text += f"""
+└─ MA50: {ma_emoji} {ma_text}"""
         
-        self.send_message(text)
+        # Objetivos
+        text += f"""
+
+🎯 <b>Objetivos:</b>
+├─ 🛑 SL: ${sl_price:.4f} ({potential_loss:.1f}%)
+├─ 💰 TP: ${tp_price:.4f} (+{potential_gain:.1f}%)
+└─ ⚖️ R:R = 1:{risk_reward:.1f}
+
+⏰ {datetime.now().strftime('%d/%m/%Y %H:%M:%S')}"""
+        
+        # Botones interactivos
+        dashboard_url = os.getenv('DASHBOARD_URL', 'http://localhost:5000')
+        tradingview_url = f"https://www.tradingview.com/chart/?symbol=BINANCE:{symbol_clean}USDT"
+        
+        buttons = [[
+            {'text': '📊 Ver Dashboard', 'url': dashboard_url},
+            {'text': '📈 TradingView', 'url': tradingview_url}
+        ]]
+        
+        self.send_message(text, buttons=buttons)
     
-    def notify_sell(self, symbol, price, qty, reason, pnl, roi):
+    def notify_sell(self, symbol, price, qty, reason, pnl, roi, entry_price=None, duration=None):
         """
-        Notificación de venta.
+        Notificación de venta mejorada.
         
         Args:
             symbol: Par (ej: 'ETH/USDT')
@@ -111,6 +159,8 @@ class TelegramNotifier:
             reason: Razón de la venta ('TP', 'SL', 'MA_SL', 'bearish')
             pnl: Profit & Loss en USD
             roi: Retorno sobre inversión en %
+            entry_price: Precio de entrada (opcional)
+            duration: Duración del trade en formato string (opcional)
         """
         emoji_map = {
             'TP': '💰',
@@ -129,20 +179,56 @@ class TelegramNotifier:
         emoji = emoji_map.get(reason, '📉')
         reason_text = reason_map.get(reason, reason)
         profit = pnl > 0
+        result_emoji = '🟢' if profit else '🔴'
         pnl_emoji = '💚' if profit else '💔'
         
-        text = f"""{emoji} <b>VENTA EJECUTADA</b>
+        symbol_clean = symbol.replace('/USDT', '')
+        text = f"""{result_emoji} <b>VENTA EJECUTADA</b>
 
-🪙 Par: <b>{symbol.replace('/USDT', '')}</b>
-💵 Precio: <b>${price:.4f}</b>
-📦 Cantidad: {qty:.6f}
-📋 Razón: {reason_text}
+━━━━━━━━━━━━━━━━━━━━
+🪙 <b>{symbol_clean}/USDT</b>
+━━━━━━━━━━━━━━━━━━━━
 
-{pnl_emoji} P&L: <b>${pnl:.2f}</b> ({roi:+.2f}%)
+📊 <b>Operación:</b>"""
 
-⏰ {datetime.now().strftime('%H:%M:%S')}"""
+        if entry_price:
+            text += f"""
+├─ Entrada: ${entry_price:.4f}
+├─ Salida: ${price:.4f}"""
+        else:
+            text += f"""
+├─ Precio: ${price:.4f}"""
         
-        self.send_message(text)
+        text += f"""
+├─ Cantidad: {qty:.6f}"""
+        
+        if duration:
+            text += f"""
+└─ Duración: {duration}"""
+        else:
+            text += f"""
+└─ Razón: {reason_text}"""
+        
+        text += f"""
+
+💰 <b>Resultado:</b>
+├─ P&L: <b>${pnl:+.2f}</b>
+├─ ROI: <b>{roi:+.2f}%</b>
+└─ {emoji} {reason_text}
+
+{pnl_emoji} {'¡Ganancia!' if profit else 'Pérdida'}
+
+⏰ {datetime.now().strftime('%d/%m/%Y %H:%M:%S')}"""
+        
+        # Botones interactivos
+        dashboard_url = os.getenv('DASHBOARD_URL', 'http://localhost:5000')
+        
+        buttons = [[
+            {'text': '📊 Ver Dashboard', 'url': dashboard_url},
+            {'text': '📋 Ver Historial', 'url': f'{dashboard_url}#trades'}
+        ]]
+        
+        self.send_message(text, buttons=buttons)
     
     def notify_cycle_complete(self, total_equity, initial_capital, roi, positions_count):
         """
@@ -203,3 +289,187 @@ class TelegramNotifier:
 ⏰ {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}"""
         
         self.send_message(text)
+    
+    def notify_milestone(self, milestone_type, value, details=''):
+        """
+        Notificación de milestone alcanzado.
+        
+        Args:
+            milestone_type: Tipo de milestone ('roi_10', 'roi_20', 'trades_100', etc.)
+            value: Valor del milestone
+            details: Detalles adicionales (opcional)
+        """
+        milestones = {
+            'roi_10': ('🎉', 'ROI +10% Alcanzado!'),
+            'roi_20': ('🚀', 'ROI +20% Alcanzado!'),
+            'roi_50': ('💎', 'ROI +50% Alcanzado!'),
+            'trades_50': ('🎯', '50 Trades Completados!'),
+            'trades_100': ('💯', '100 Trades Completados!'),
+            'trades_200': ('🏆', '200 Trades Completados!'),
+            'win_streak_5': ('🔥', 'Racha de 5 Wins!'),
+            'win_streak_10': ('🔥🔥', 'Racha de 10 Wins!'),
+        }
+        
+        emoji, title = milestones.get(milestone_type, ('🎊', 'Milestone Alcanzado'))
+        
+        text = f"""{emoji} <b>{title}</b>
+
+🏆 Has alcanzado un nuevo hito
+
+📊 Valor: {value}"""
+        
+        if details:
+            text += f"""
+ℹ️ {details}"""
+        
+        text += f"""
+
+⏰ {datetime.now().strftime('%d/%m/%Y %H:%M:%S')}
+
+¡Sigue así! 💪"""
+        
+        self.send_message(text)
+    
+    def notify_risk_alert(self, alert_type, details):
+        """
+        Notificación de alerta de riesgo.
+        
+        Args:
+            alert_type: Tipo de alerta
+            details: Detalles de la alerta
+        """
+        text = f"""⚠️ <b>ALERTA DE RIESGO</b>
+
+🚨 {alert_type}
+
+{details}
+
+⚠️ Revisa el dashboard inmediatamente
+
+⏰ {datetime.now().strftime('%d/%m/%Y %H:%M:%S')}"""
+        
+        dashboard_url = os.getenv('DASHBOARD_URL', 'http://localhost:5000')
+        buttons = [[
+            {'text': '📊 Ver Dashboard', 'url': dashboard_url}
+        ]]
+        
+        self.send_message(text, buttons=buttons)
+    
+    def notify_strong_signal(self, symbol, adx, price, reason=''):
+        """
+        Notificación de señal fuerte detectada sin posición abierta.
+        
+        Args:
+            symbol: Par de trading
+            adx: Valor del ADX
+            price: Precio actual
+            reason: Razón adicional (opcional)
+        """
+        symbol_clean = symbol.replace('/USDT', '')
+        
+        text = f"""⚡ <b>SEÑAL FUERTE DETECTADA</b>
+
+🪙 Par: <b>{symbol_clean}/USDT</b>
+📊 ADX: <b>{adx:.1f}</b> {'🔥' if adx > 30 else '✅'}
+💵 Precio Actual: ${price:.4f}
+
+{'📋 ' + reason if reason else ''}
+
+⚠️ Sin posición abierta actualmente
+
+⏰ {datetime.now().strftime('%d/%m/%Y %H:%M:%S')}"""
+        
+        tradingview_url = f"https://www.tradingview.com/chart/?symbol=BINANCE:{symbol_clean}USDT"
+        buttons = [[
+            {'text': '📈 Ver en TradingView', 'url': tradingview_url}
+        ]]
+        
+        self.send_message(text, buttons=buttons)
+    
+    def notify_daily_summary(self, stats):
+        """
+        Resumen diario de trading.
+        
+        Args:
+            stats: Diccionario con estadísticas del día
+        """
+        profit = stats.get('pnl', 0) > 0
+        emoji = '📈' if profit else '📉'
+        
+        text = f"""{emoji} <b>Resumen Diario</b>
+
+🗓️ {datetime.now().strftime('%d de %B de %Y')}
+
+━━━━━━━━━━━━━━━━━━━━
+📊 <b>Performance</b>
+━━━━━━━━━━━━━━━━━━━━
+
+💰 P&L del Día: <b>${stats.get('pnl', 0):+.2f}</b>
+📈 ROI del Día: <b>{stats.get('roi', 0):+.2f}%</b>
+🎯 Trades: {stats.get('total_trades', 0)} ({stats.get('wins', 0)}W / {stats.get('losses', 0)}L)
+✅ Win Rate: {stats.get('win_rate', 0):.1f}%
+
+━━━━━━━━━━━━━━━━━━━━
+💼 <b>Estado Actual</b>
+━━━━━━━━━━━━━━━━━━━━
+
+💰 Equity Total: ${stats.get('total_equity', 0):.2f}
+📈 ROI Acumulado: {stats.get('total_roi', 0):+.2f}%
+📍 Posiciones Abiertas: {stats.get('open_positions', 0)}/4
+
+⏰ {datetime.now().strftime('%d/%m/%Y %H:%M:%S')}"""
+        
+        dashboard_url = os.getenv('DASHBOARD_URL', 'http://localhost:5000')
+        buttons = [[
+            {'text': '📊 Ver Dashboard', 'url': dashboard_url}
+        ]]
+        
+        self.send_message(text, silent=True, buttons=buttons)
+    
+    def notify_weekly_summary(self, stats):
+        """
+        Resumen semanal de trading.
+        
+        Args:
+            stats: Diccionario con estadísticas de la semana
+        """
+        profit = stats.get('pnl', 0) > 0
+        emoji = '📊' if profit else '📉'
+        
+        text = f"""{emoji} <b>Resumen Semanal</b>
+
+🗓️ Semana del {stats.get('week_start', '')} al {stats.get('week_end', '')}
+
+━━━━━━━━━━━━━━━━━━━━
+📈 <b>Performance</b>
+━━━━━━━━━━━━━━━━━━━━
+
+💰 P&L Semanal: <b>${stats.get('pnl', 0):+.2f}</b>
+📊 ROI Semanal: <b>{stats.get('roi', 0):+.2f}%</b>
+🎯 Trades: {stats.get('total_trades', 0)} ({stats.get('wins', 0)}W / {stats.get('losses', 0)}L)
+✅ Win Rate: {stats.get('win_rate', 0):.1f}%
+
+━━━━━━━━━━━━━━━━━━━━
+🏆 <b>Top Performers</b>
+━━━━━━━━━━━━━━━━━━━━
+
+1️⃣ {stats.get('best_pair', 'N/A')}: {stats.get('best_roi', 0):+.2f}%
+2️⃣ {stats.get('second_pair', 'N/A')}: {stats.get('second_roi', 0):+.2f}%
+
+━━━━━━━━━━━━━━━━━━━━
+💼 <b>Estado Actual</b>
+━━━━━━━━━━━━━━━━━━━━
+
+💰 Equity Total: ${stats.get('total_equity', 0):.2f}
+📈 ROI Total: {stats.get('total_roi', 0):+.2f}%
+📍 Posiciones Abiertas: {stats.get('open_positions', 0)}/4
+
+⏰ {datetime.now().strftime('%d/%m/%Y %H:%M:%S')}"""
+        
+        dashboard_url = os.getenv('DASHBOARD_URL', 'http://localhost:5000')
+        buttons = [[
+            {'text': '📊 Ver Dashboard', 'url': dashboard_url}
+        ]]
+        
+        self.send_message(text, silent=True, buttons=buttons)
+

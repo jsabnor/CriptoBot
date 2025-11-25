@@ -5,6 +5,40 @@ Todos los cambios notables en este proyecto serán documentados en este archivo.
 El formato está basado en [Keep a Changelog](https://keepachangelog.com/es-ES/1.0.0/),
 y este proyecto adhiere a [Semantic Versioning](https://semver.org/lang/es/).
 
+## [1.8.0] - 2025-11-25
+
+### Añadido
+- **Telegram: Notificaciones mejoradas con formato profesional**
+  - Mensajes de compra/venta con separadores visuales y mejor organización
+  - Indicadores técnicos en notificaciones (ADX, MA status, Risk/Reward ratio)
+  - Emojis contextuales según fuerza de señal y resultado del trade
+  - Duración de trades en formato legible (Xh Ym, Xd Yh)
+  
+- **Telegram: Botones interactivos**
+  - Acceso directo al dashboard desde notificaciones
+  - Links a TradingView para análisis rápido
+  - Botones contextuales según tipo de notificación
+
+- **Telegram: Nuevos tipos de notificaciones**
+  - `notify_milestone()` - Celebración de logros (ROI +10%, 100 trades, rachas)
+  - `notify_risk_alert()` - Alertas de situaciones de riesgo
+  - `notify_strong_signal()` - Señales fuertes detectadas sin posición
+  - `notify_daily_summary()` - Resumen diario automático
+  - `notify_weekly_summary()` - Resumen semanal con top performers
+
+- **Bot: Tracking de duración de trades**
+  - Timestamp de entrada en posiciones
+  - Cálculo automático de duración
+  - Formato legible en notificaciones
+
+### Mejorado
+- Mensajes de Telegram más informativos y profesionales
+- Mejor experiencia de usuario con acceso rápido a herramientas
+- Sistema de notificaciones más completo y motivacional
+
+### Configuración
+- Nueva variable `DASHBOARD_URL` en `.env` para botones de Telegram
+
 ## [1.7.0] - 2025-11-24
 
 ### Añadido
