@@ -49,27 +49,6 @@ class TelegramNotifier:
                 json=payload,
                 timeout=10
             )
-            return response.status_code == 200
-        except Exception as e:
-            print(f"⚠️ Error enviando mensaje a Telegram: {e}")
-            return False
-    
-    def notify_startup(self, mode, symbols, capital):
-        """
-        Notificación de inicio del bot.
-        
-        Args:
-            mode: Modo de trading ('paper' o 'live')
-            symbols: Lista de pares a operar
-            capital: Capital total
-        """
-        emoji = "🚀" if mode == "paper" else "⚡"
-        mode_text = "SIMULACIÓN" if mode == "paper" else "DINERO REAL"
-        
-        text = f"""{emoji} <b>Bot de Trading Iniciado</b>
-
-📊 Modo: <b>{mode_text}</b>
-💰 Capital Total: <b>{capital:.2f} EUR</b>
 🪙 Pares: {', '.join([s.replace('/USDT', '') for s in symbols])}
 ⏰ Timeframe: 4h
 
