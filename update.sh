@@ -204,8 +204,23 @@ fi
 # ============================================================================
 print_header "APLICANDO ACTUALIZACIÓN"
 
+# Guardar cambios locales temporalmente (especialmente update.sh)
+print_info "Guardando cambios locales temporalmente..."
+git stash push -m "Auto-stash before update $(date +%Y%m%d_%H%M%S)" 2>/dev/null || true
+
 print_info "Descargando cambios desde GitHub..."
-git pull origin main
+if ! git pull origin main; then
+    print_error "Error al descargar cambios"
+    print_warning "Intentando recuperar cambios guardados..."
+    git stash pop 2>/dev/null || true
+    exit 1
+fi
+
+# Restaurar cambios locales si los había
+if git stash list | grep -q "Auto-stash before update"; then
+    print_info "Restaurando cambios locales..."
+    git stash pop 2>/dev/null || true
+fi
 
 print_success "Código actualizado"
 
