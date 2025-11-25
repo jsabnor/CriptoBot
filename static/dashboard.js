@@ -460,7 +460,7 @@ function renderChart(data, containerId, botType) {
 
     // Strategy Specific Chart Indicators
     if (botType === 'ADX') {
-        // MA 50 only
+        // MA 50
         traces.push({
             x: closedCandles.map(c => c.timestamp),
             y: closedCandles.map(c => c.ma),
@@ -468,6 +468,16 @@ function renderChart(data, containerId, botType) {
             mode: 'lines',
             name: 'MA 50',
             line: { color: '#f39c12', width: 1.5 }
+        });
+
+        // MA 200
+        traces.push({
+            x: closedCandles.map(c => c.timestamp),
+            y: closedCandles.map(c => c.long_ma),
+            type: 'scatter',
+            mode: 'lines',
+            name: 'MA 200',
+            line: { color: '#e74c3c', width: 1.5 }
         });
 
     } else if (botType === 'EMA') {
@@ -510,14 +520,6 @@ function updateIndicatorsPanel(botType, candle) {
             const isBullish = candle.close > candle.ma;
             trendEl.textContent = isBullish ? 'BULLISH' : 'BEARISH';
             trendEl.className = `indicator-value ${isBullish ? 'bullish' : 'bearish'}`;
-        }
-
-        // Long Term (MA200)
-        const longTermEl = document.getElementById('adx-long-term');
-        if (longTermEl) {
-            const isLongBullish = candle.close > candle.long_ma;
-            longTermEl.textContent = isLongBullish ? 'BULLISH' : 'BEARISH';
-            longTermEl.className = `indicator-value ${isLongBullish ? 'bullish' : 'bearish'}`;
         }
 
         // ATR

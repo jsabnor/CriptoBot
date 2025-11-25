@@ -90,37 +90,37 @@
     <!-- VISTA BOT ADX -->
     <!-- ============================================ -->
     <div id="adx-view" class="view">
-        <!-- ADX Indicators Panel -->
-        <div class="indicators-panel">
-            <div class="indicator-card">
-                <div class="indicator-label">ADX (14)</div>
-                <div id="adx-val" class="indicator-value">--</div>
+        <div class="chart-row">
+            <!-- ADX Indicators Panel (Side) -->
+            <div class="indicators-panel side-panel">
+                <div class="indicator-card">
+                    <div class="indicator-label">ADX (14)</div>
+                    <div id="adx-val" class="indicator-value">--</div>
+                </div>
+                <div class="indicator-card">
+                    <div class="indicator-label">Trend (MA50)</div>
+                    <div id="adx-trend" class="indicator-value">--</div>
+                </div>
+                <div class="indicator-card">
+                    <div class="indicator-label">ATR</div>
+                    <div id="adx-atr" class="indicator-value">--</div>
+                </div>
             </div>
-            <div class="indicator-card">
-                <div class="indicator-label">Trend (MA50)</div>
-                <div id="adx-trend" class="indicator-value">--</div>
-            </div>
-            <div class="indicator-card">
-                <div class="indicator-label">Long Term (MA200)</div>
-                <div id="adx-long-term" class="indicator-value">--</div>
-            </div>
-            <div class="indicator-card">
-                <div class="indicator-label">ATR</div>
-                <div id="adx-atr" class="indicator-value">--</div>
-            </div>
-        </div>
 
-        <!-- ADX Chart Selector -->
-        <div class="chart-selector">
-            <h2>📈 Gráfico Bot ADX</h2>
-            <select id="adx-symbol-select" class="symbol-select">
-                <option value="ETH">ETH/USDT</option>
-                <option value="XRP">XRP/USDT</option>
-                <option value="BNB">BNB/USDT</option>
-                <option value="SOL">SOL/USDT</option>
-            </select>
+            <!-- ADX Chart Area -->
+            <div class="chart-area">
+                <div class="chart-selector">
+                    <h2>📈 Gráfico Bot ADX</h2>
+                    <select id="adx-symbol-select" class="symbol-select">
+                        <option value="ETH">ETH/USDT</option>
+                        <option value="XRP">XRP/USDT</option>
+                        <option value="BNB">BNB/USDT</option>
+                        <option value="SOL">SOL/USDT</option>
+                    </select>
+                </div>
+                <div id="adx-chart" class="chart-container"></div>
+            </div>
         </div>
-        <div id="adx-chart" class="chart-container"></div>
 
         <!-- ADX Metrics -->
         <div class="metrics">
@@ -157,19 +157,35 @@
     <!-- VISTA BOT EMA -->
     <!-- ============================================ -->
     <div id="ema-view" class="view">
-        <!-- EMA Indicators Panel -->
-        <div class="indicators-panel">
-            <div class="indicator-card">
-                <div class="indicator-label">EMA 15</div>
-                <div id="ema-fast-val" class="indicator-value">--</div>
+        <div class="chart-row">
+            <!-- EMA Indicators Panel (Side) -->
+            <div class="indicators-panel side-panel">
+                <div class="indicator-card">
+                    <div class="indicator-label">EMA 15</div>
+                    <div id="ema-fast-val" class="indicator-value">--</div>
+                </div>
+                <div class="indicator-card">
+                    <div class="indicator-label">EMA 30</div>
+                    <div id="ema-slow-val" class="indicator-value">--</div>
+                </div>
+                <div class="indicator-card">
+                    <div class="indicator-label">Signal</div>
+                    <div id="ema-signal" class="indicator-value">--</div>
+                </div>
             </div>
-            <div class="indicator-card">
-                <div class="indicator-label">EMA 30</div>
-                <div id="ema-slow-val" class="indicator-value">--</div>
-            </div>
-            <div class="indicator-card">
-                <div class="indicator-label">Signal</div>
-                <div id="ema-signal" class="indicator-value">--</div>
+
+            <!-- EMA Chart Area -->
+            <div class="chart-area">
+                <div class="chart-selector">
+                    <h2>📈 Gráfico Bot EMA</h2>
+                    <select id="ema-symbol-select" class="symbol-select">
+                        <option value="ETH">ETH/USDT</option>
+                        <option value="XRP">XRP/USDT</option>
+                        <option value="BNB">BNB/USDT</option>
+                        <option value="SOL">SOL/USDT</option>
+                    </select>
+                </div>
+                <div id="ema-chart" class="chart-container"></div>
             </div>
         </div>
 
@@ -196,18 +212,6 @@
                 <p class="metric-value" style="font-size: 1.2rem;">EMA 15/30</p>
             </div>
         </div>
-
-        <!-- EMA Chart Selector -->
-        <div class="chart-selector">
-            <h2>📈 Gráfico Bot EMA</h2>
-            <select id="ema-symbol-select" class="symbol-select">
-                <option value="ETH">ETH/USDT</option>
-                <option value="XRP">XRP/USDT</option>
-                <option value="BNB">BNB/USDT</option>
-                <option value="SOL">SOL/USDT</option>
-            </select>
-        </div>
-        <div id="ema-chart" class="chart-container"></div>
 
         <!-- EMA Trades Table -->
         <div class="trades-section">
