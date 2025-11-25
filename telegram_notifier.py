@@ -30,36 +30,6 @@ class TelegramNotifier:
             bool: True si se envió correctamente
         """
         if not self.enabled:
-            return False
-            
-        try:
-            payload = {
-                'chat_id': self.chat_id,
-                'text': text,
-                'parse_mode': 'HTML',
-                'disable_notification': silent
-            }
-            
-            # Añadir botones si se proporcionan
-            if buttons:
-                payload['reply_markup'] = {'inline_keyboard': buttons}
-            
-            response = requests.post(
-                self.api_url,
-                json=payload,
-                timeout=10
-            )
-🪙 Pares: {', '.join([s.replace('/USDT', '') for s in symbols])}
-⏰ Timeframe: 4h
-
-🕐 {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}"""
-        
-        self.send_message(text)
-    
-    def notify_buy(self, symbol, price, qty, cost, sl_price, tp_price, adx=None, ma_status=None, strategy_name=''):
-        """
-        Notificación de compra mejorada.
-        
         Args:
             symbol: Par (ej: 'ETH/USDT')
             price: Precio de compra
