@@ -309,42 +309,6 @@ tr:hover {
 /* Comparison Grid */
 .comparison-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
-    gap: 20px;
-    margin-bottom: 30px;
-}
-
-/* Comparison Table */
-.comparison-table-container {
-    background: #161b22;
-    padding: 25px;
-    border-radius: 12px;
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
-    margin-bottom: 20px;
-}
-
-.comparison-table-container h3 {
-    margin-bottom: 20px;
-    font-size: 18px;
-    font-weight: 600;
-}
-
-/* Trades Table */
-.trades-table {
-    overflow-x: auto;
-}
-
-.buy-badge {
-    display: inline-block;
-    padding: 4px 12px;
-    border-radius: 12px;
-    background: rgba(38, 166, 154, 0.2);
-    color: #26a69a;
-    font-weight: 600;
-    font-size: 12px;
-}
-
-.sell-badge {
     display: inline-block;
     padding: 4px 12px;
     border-radius: 12px;

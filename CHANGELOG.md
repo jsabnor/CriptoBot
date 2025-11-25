@@ -20,19 +20,6 @@
 
 **Bot EMA**
 - Añadida notificación de inicio por Telegram con prefijo [EMA]
-- Mensaje de startup con configuración y capital
-
-**Total:** ~1,070 líneas de código nuevo
-
----
-
-## [1.9.0] - 2025-11-25
-
-### 🚀 Nueva Estrategia EMA Crossover
-
-  - `notify_strong_signal()` - Señales fuertes detectadas sin posición
-  - `notify_daily_summary()` - Resumen diario automático
-  - `notify_weekly_summary()` - Resumen semanal con top performers
 
 - **Bot: Tracking de duración de trades**
   - Timestamp de entrada en posiciones
