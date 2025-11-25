@@ -421,13 +421,30 @@ function renderChart(data, containerId, botType) {
         });
     }
 
+    // Calculate range for last 50 candles to reduce clutter
+    let xrange = null;
+    if (closedCandles.length > 50) {
+        // Get timestamp of the 50th to last candle
+        const start = closedCandles[closedCandles.length - 50].timestamp;
+        // Get timestamp of the last candle (plus a bit of buffer if needed, but Plotly handles it)
+        const end = closedCandles[closedCandles.length - 1].timestamp;
+        xrange = [start, end];
+    }
+
     // Layout configuration
     const layout = {
         height: 500,
         paper_bgcolor: 'rgba(0,0,0,0)',
         plot_bgcolor: 'rgba(0,0,0,0)',
         font: { color: '#ecf0f1' },
-        xaxis: { rangeslider: { visible: false }, anchor: 'y' },
+        xaxis: {
+            rangeslider: { visible: false },
+            anchor: 'y',
+            range: xrange, // Initial zoom level
+            tickformat: '%d/%m %H:%M', // Shorter date format (Day/Month Hour:Minute)
+            tickangle: -45, // Angled ticks for better readability
+            nticks: 10 // Limit number of ticks to avoid overcrowding
+        },
         yaxis: { domain: [0.3, 1] }, // Main chart takes top 70%
         yaxis2: { domain: [0, 0.2], title: 'ADX', anchor: 'x' }, // Subplot takes bottom 20%
         grid: { rows: 2, columns: 1, pattern: 'independent' },
@@ -439,7 +456,7 @@ function renderChart(data, containerId, botType) {
     if (botType === 'ADX') {
         // --- ADX Strategy Indicators ---
 
-        // MA 50 (Main Chart)
+        // MA 50 (Main Chart - Left Axis)
         traces.push({
             x: closedCandles.map(c => c.timestamp),
             y: closedCandles.map(c => c.ma),
@@ -449,28 +466,65 @@ function renderChart(data, containerId, botType) {
             line: { color: '#f39c12', width: 1.5 }
         });
 
-        // ADX (Subplot)
+        // ADX (Secondary Axis - Right)
         traces.push({
             x: closedCandles.map(c => c.timestamp),
             y: closedCandles.map(c => c.adx),
             type: 'scatter',
             mode: 'lines',
             name: 'ADX',
-            line: { color: '#e74c3c', width: 1.5 },
+            line: { color: '#e74c3c', width: 2 },
             yaxis: 'y2'
         });
 
-        // ADX Threshold Line (25)
+        // +DI (Secondary Axis - Right)
+        traces.push({
+            x: closedCandles.map(c => c.timestamp),
+            y: closedCandles.map(c => c.di_plus),
+            type: 'scatter',
+            mode: 'lines',
+            name: '+DI',
+            line: { color: '#2ecc71', width: 1, dash: 'dot' }, // Green dotted
+            yaxis: 'y2',
+            visible: 'legendonly' // Hidden by default to reduce clutter
+        });
+
+        // -DI (Secondary Axis - Right)
+        traces.push({
+            x: closedCandles.map(c => c.timestamp),
+            y: closedCandles.map(c => c.di_minus),
+            type: 'scatter',
+            mode: 'lines',
+            name: '-DI',
+            line: { color: '#e74c3c', width: 1, dash: 'dot' }, // Red dotted
+            yaxis: 'y2',
+            visible: 'legendonly' // Hidden by default to reduce clutter
+        });
+
+        // ADX Threshold Line (25) - Secondary Axis
         traces.push({
             x: [closedCandles[0].timestamp, closedCandles[closedCandles.length - 1].timestamp],
             y: [25, 25],
             type: 'scatter',
             mode: 'lines',
             name: 'Threshold (25)',
-            line: { color: 'rgba(255, 255, 255, 0.3)', width: 1, dash: 'dot' },
+            line: { color: 'rgba(255, 255, 255, 0.3)', width: 1, dash: 'dash' },
             yaxis: 'y2',
             showlegend: false
         });
+
+        // Configure Secondary Y-Axis for ADX
+        layout.yaxis2 = {
+            title: 'ADX / DI',
+            overlaying: 'y',
+            side: 'right',
+            range: [0, 100],
+            showgrid: false,
+            zeroline: false
+        };
+
+        // Main chart takes full height
+        layout.yaxis.domain = [0, 1];
 
     } else if (botType === 'EMA') {
         // --- EMA Strategy Indicators ---
