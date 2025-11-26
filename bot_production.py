@@ -440,7 +440,80 @@ class TradingBot:
         print(f"{'='*70}")
         print(f"TOTAL EQUITY: ${total_equity:.2f} (ROI: {((total_equity - self.TOTAL_CAPITAL) / self.TOTAL_CAPITAL * 100):.2f}%)")
         print(f"Total Trades: {len([t for t in self.trades_log if t['type'] == 'buy'])}")
+        print(f"Total Trades: {len([t for t in self.trades_log if t['type'] == 'buy'])}")
         print(f"{'='*70}\n")
+        
+    def send_daily_summary(self):
+        """Envía resumen diario por Telegram"""
+        if not self.telegram.enabled:
+            return
+            
+        try:
+            # Calcular estadísticas del día
+            today_pnl = 0
+            today_roi = 0
+            today_trades = 0
+            today_wins = 0
+            today_losses = 0
+            
+            if os.path.exists('trades_production.csv'):
+                df = pd.read_csv('trades_production.csv')
+                if 'timestamp' in df.columns:
+                    df['timestamp'] = pd.to_datetime(df['timestamp'])
+                    
+                    # Filtrar últimas 24h
+                    now = datetime.now()
+                    start_of_day = now.replace(hour=0, minute=0, second=0, microsecond=0) - timedelta(days=1)
+                    today_mask = df['timestamp'] >= start_of_day
+                    df_today = df[today_mask]
+                    
+                    if not df_today.empty:
+                        # En bot ADX, los trades cerrados son 'sell'
+                        sells = df_today[df_today['type'] == 'sell']
+                        today_trades = len(sells)
+                        if today_trades > 0:
+                            today_pnl = sells['pnl'].sum()
+                            today_wins = len(sells[sells['pnl'] > 0])
+                            today_losses = len(sells[sells['pnl'] <= 0])
+                            
+                            # ROI del día basado en capital inicial
+                            today_roi = (today_pnl / self.TOTAL_CAPITAL) * 100
+            
+            # Totales
+            total_equity = 0
+            for symbol in self.SYMBOLS:
+                equity = self.equity[symbol]
+                position = self.positions[symbol]
+                if position:
+                    try:
+                        current_price = self.exchange.fetch_ticker(symbol)['last'] if self.MODE == 'live' else position['entry_price']
+                        position_value = position['size'] * current_price
+                        total_equity += equity + position_value
+                    except:
+                        total_equity += equity
+                else:
+                    total_equity += equity
+            
+            total_roi = ((total_equity - self.TOTAL_CAPITAL) / self.TOTAL_CAPITAL * 100)
+            open_positions = sum(1 for p in self.positions.values() if p is not None)
+            
+            stats = {
+                'pnl': today_pnl,
+                'roi': today_roi,
+                'total_trades': today_trades,
+                'wins': today_wins,
+                'losses': today_losses,
+                'win_rate': (today_wins / today_trades * 100) if today_trades > 0 else 0,
+                'total_equity': total_equity,
+                'total_roi': total_roi,
+                'open_positions': open_positions
+            }
+            
+            self.telegram.notify_daily_summary(stats)
+            print(f"✅ Resumen diario enviado: PnL ${today_pnl:.2f}")
+            
+        except Exception as e:
+            print(f"❌ Error enviando resumen diario: {e}")
         
         self.save_state()
         
@@ -489,6 +562,11 @@ class TradingBot:
                 
                 # Ejecutar ciclo de trading
                 self.run_once()
+                
+                # Enviar resumen diario si es cambio de día (00:00 UTC)
+                current_time = datetime.utcnow()
+                if current_time.hour == 0 and current_time.minute < 10:
+                    self.send_daily_summary()
                 
             except KeyboardInterrupt:
                 print("\n\n🛑 Bot detenido por el usuario")

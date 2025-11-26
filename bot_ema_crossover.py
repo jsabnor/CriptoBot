@@ -401,6 +401,65 @@ class EMABot:
         print(f"ROI: {roi:+.2f}%")
         print(f"Posiciones abiertas: {sum(1 for p in self.positions.values() if p is not None)}/{len(self.symbols)}")
         print(f"{'='*60}\n")
+        
+    def send_daily_summary(self):
+        """Envía resumen diario por Telegram"""
+        if not self.telegram.enabled:
+            return
+            
+        try:
+            # Calcular estadísticas del día
+            today_pnl = 0
+            today_roi = 0
+            today_trades = 0
+            today_wins = 0
+            today_losses = 0
+            
+            if os.path.exists('trades_ema.csv'):
+                df = pd.read_csv('trades_ema.csv')
+                df['timestamp'] = pd.to_datetime(df['timestamp'])
+                
+                # Filtrar últimas 24h
+                now = datetime.now()
+                start_of_day = now.replace(hour=0, minute=0, second=0, microsecond=0) - timedelta(days=1)
+                today_mask = df['timestamp'] >= start_of_day
+                df_today = df[today_mask]
+                
+                if not df_today.empty:
+                    sells = df_today[df_today['side'] == 'sell']
+                    today_trades = len(sells)
+                    if today_trades > 0:
+                        today_pnl = sells['pnl'].sum()
+                        today_wins = len(sells[sells['pnl'] > 0])
+                        today_losses = len(sells[sells['pnl'] <= 0])
+                        
+                        # ROI del día basado en capital inicial
+                        initial_capital = self.capital_per_pair * len(self.symbols)
+                        today_roi = (today_pnl / initial_capital) * 100
+            
+            # Totales
+            total_equity = sum(self.equity.values())
+            initial_capital = self.capital_per_pair * len(self.symbols)
+            total_roi = ((total_equity - initial_capital) / initial_capital) * 100
+            open_positions = sum(1 for p in self.positions.values() if p is not None)
+            
+            stats = {
+                'pnl': today_pnl,
+                'roi': today_roi,
+                'total_trades': today_trades,
+                'wins': today_wins,
+                'losses': today_losses,
+                'win_rate': (today_wins / today_trades * 100) if today_trades > 0 else 0,
+                'total_equity': total_equity,
+                'total_roi': total_roi,
+                'open_positions': open_positions
+            }
+            
+            self.telegram.notify_daily_summary(stats)
+            print(f"✅ Resumen diario enviado: PnL ${today_pnl:.2f}")
+            
+        except Exception as e:
+            print(f"❌ Error enviando resumen diario: {e}")
     
     def run_continuous(self, interval_hours=4):
         """Ejecuta el bot continuamente sincronizado con velas de 4h"""
@@ -431,6 +490,12 @@ class EMABot:
                 
                 # Ejecutar análisis
                 self.run_once()
+                
+                # Enviar resumen diario si es cambio de día (00:00 UTC)
+                # Como run_once tarda un poco, verificamos si acabamos de pasar las 00:00
+                current_time = datetime.utcnow()
+                if current_time.hour == 0 and current_time.minute < 10:
+                    self.send_daily_summary()
                 
             except KeyboardInterrupt:
                 print("\n⚠️ Bot detenido por el usuario")

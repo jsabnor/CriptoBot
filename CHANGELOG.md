@@ -1,5 +1,15 @@
 # Changelog
 
+## v2.1.3 - Telegram Daily Summary Fix (2025-11-26)
+
+**Mejora: Notificaciones de Resumen Diario**
+- **Problema**: Los bots no enviaban el resumen diario a las 00:00 UTC
+- **Solución**: Implementada lógica `send_daily_summary()` en ambos bots
+- **Archivos modificados**:
+  - `bot_ema_crossover.py`: Añadido envío de resumen diario a las 00:00 UTC
+  - `bot_production.py`: Añadido envío de resumen diario a las 00:00 UTC
+- **Impacto**: Ahora recibirás un resumen automático cada día con PnL, ROI y trades del día
+
 ## v2.1.2 - Trades Compatibility Fix (2025-11-26)
 
 **Corrección: Compatibilidad de Formatos de Trades**
