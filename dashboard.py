@@ -120,6 +120,47 @@ def load_bot_trades(bot_name):
     return pd.DataFrame()
 
 
+def get_real_equity(state, bot_type):
+    """
+    Calcula equity real de un bot (cash + valor de posiciones abiertas)
+    
+    Args:
+        state: Estado del bot (dict)
+        bot_type: 'adx' o 'ema'
+    
+    Returns:
+        float: Equity total real
+    """
+    if not state:
+        return 0
+    
+    # Equity en efectivo
+    if bot_type == 'adx':
+        cash_equity = state.get('total_equity', 0)
+    else:  # ema
+        equity_dict = state.get('equity', {})
+        cash_equity = sum(equity_dict.values()) if isinstance(equity_dict, dict) else 0
+    
+    # Valor de posiciones abiertas
+    positions = state.get('positions', {})
+    position_value = 0
+    
+    for symbol, pos in positions.items():
+        if pos and isinstance(pos, dict):
+            qty = pos.get('qty', 0) or pos.get('size', 0)
+            if qty > 0:
+                # Obtener precio actual del símbolo
+                try:
+                    df = data_cache.get_data(symbol, '4h')
+                    if df is not None and len(df) > 0:
+                        current_price = df.iloc[-1]['close']
+                        position_value += qty * current_price
+                except Exception as e:
+                    print(f"Error getting price for {symbol}: {e}")
+    
+    return cash_equity + position_value
+
+
 def calculate_combined_metrics(adx_state, ema_state):
     """
     Calcula métricas combinadas de ambos bots
@@ -131,37 +172,6 @@ def calculate_combined_metrics(adx_state, ema_state):
     Returns:
         dict con métricas combinadas
     """
-    # Función helper para calcular equity real (cash + posiciones)
-    def get_real_equity(state, bot_type):
-        if not state:
-            return 0
-        
-        # Equity en efectivo
-        if bot_type == 'adx':
-            cash_equity = state.get('total_equity', 0)
-        else:  # ema
-            equity_dict = state.get('equity', {})
-            cash_equity = sum(equity_dict.values()) if isinstance(equity_dict, dict) else 0
-        
-        # Valor de posiciones abiertas
-        positions = state.get('positions', {})
-        position_value = 0
-        
-        for symbol, pos in positions.items():
-            if pos and isinstance(pos, dict):
-                qty = pos.get('qty', 0) or pos.get('size', 0)
-                if qty > 0:
-                    # Obtener precio actual del símbolo
-                    try:
-                        df = data_cache.get_data(symbol, '4h')
-                        if df is not None and len(df) > 0:
-                            current_price = df.iloc[-1]['close']
-                            position_value += qty * current_price
-                    except Exception as e:
-                        print(f"Error getting price for {symbol}: {e}")
-        
-        return cash_equity + position_value
-    
     # Calcular equity real de cada bot
     adx_equity = get_real_equity(adx_state, 'adx')
     ema_equity = get_real_equity(ema_state, 'ema')
@@ -492,10 +502,9 @@ def api_comparison():
         adx_metrics = calculate_trade_metrics(adx_trades)
         ema_metrics = calculate_trade_metrics(ema_trades)
         
-        # Equity y ROI
-        adx_equity = adx_state.get('total_equity', 100) if adx_state else 100
-        ema_equity_dict = ema_state.get('equity', {}) if ema_state else {}
-        ema_equity = sum(ema_equity_dict.values()) if isinstance(ema_equity_dict, dict) else 100
+        # Equity y ROI (usando función helper que incluye posiciones)
+        adx_equity = get_real_equity(adx_state, 'adx')
+        ema_equity = get_real_equity(ema_state, 'ema')
         
         adx_roi = ((adx_equity - 100) / 100 * 100)
         ema_roi = ((ema_equity - 100) / 100 * 100)
