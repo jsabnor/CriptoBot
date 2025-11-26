@@ -6,10 +6,14 @@
 - **Problema**: El dashboard calculaba el equity solo sumando el efectivo disponible, ignorando el valor actual de las posiciones abiertas
 - **Solución**: Ahora el equity total incluye: `cash + (qty_posición × precio_actual)`
 - **Impacto**: Los porcentajes de distribución ADX/EMA y las métricas individuales ahora reflejan el valor real
-- **Funciones modificadas**: 
-  - `get_real_equity()` - Nueva función helper reutilizable
-  - `calculate_combined_metrics()` - Vista combinada
-  - `/api/comparison` endpoint - Vistas individuales ADX/EMA
+- **Archivos modificados**: 
+  - `dashboard.py`:
+    - `get_real_equity()` - Nueva función helper reutilizable
+    - `calculate_combined_metrics()` - Vista combinada
+    - `/api/comparison` endpoint - Vistas individuales ADX/EMA
+  - `dashboard.js`:
+    - `updateADXView()` - Ahora usa `/api/comparison`
+    - `updateEMAView()` - Ahora usa `/api/comparison`
 
 **Ejemplo del Fix:**
 ```

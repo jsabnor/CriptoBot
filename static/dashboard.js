@@ -191,20 +191,22 @@ function renderDistributionChart(adxEquity, emaEquity) {
 // ============================================================================
 
 function updateADXView() {
-    // Update ADX status
-    fetch('/api/bot/adx/status')
+    // Update ADX status from comparison endpoint
+    fetch('/api/comparison')
         .then(r => r.json())
         .then(data => {
+            const adxData = data.adx;
+
             document.getElementById('adx-equity').textContent =
-                `$${data.total_equity.toFixed(2)}`;
+                `$${adxData.equity.toFixed(2)}`;
 
             const roiElement = document.getElementById('adx-roi');
-            const roiValue = data.roi.toFixed(2);
+            const roiValue = adxData.roi.toFixed(2);
             roiElement.textContent = `${roiValue > 0 ? '+' : ''}${roiValue}%`;
             roiElement.className = `metric-value ${roiValue >= 0 ? 'profit' : 'loss'}`;
 
             document.getElementById('adx-positions').textContent =
-                `${data.open_positions}/${data.total_pairs}`;
+                `${adxData.total_trades > 0 ? '1' : '0'}/4`;
         })
         .catch(err => console.error('Error updating ADX status:', err));
 
@@ -238,20 +240,22 @@ function updateADXTrades() {
 // ============================================================================
 
 function updateEMAView() {
-    // Update EMA status
-    fetch('/api/bot/ema/status')
+    // Update EMA status from comparison endpoint
+    fetch('/api/comparison')
         .then(r => r.json())
         .then(data => {
+            const emaData = data.ema;
+
             document.getElementById('ema-equity').textContent =
-                `$${data.total_equity.toFixed(2)}`;
+                `$${emaData.equity.toFixed(2)}`;
 
             const roiElement = document.getElementById('ema-roi');
-            const roiValue = data.roi.toFixed(2);
+            const roiValue = emaData.roi.toFixed(2);
             roiElement.textContent = `${roiValue > 0 ? '+' : ''}${roiValue}%`;
             roiElement.className = `metric-value ${roiValue >= 0 ? 'profit' : 'loss'}`;
 
             document.getElementById('ema-positions').textContent =
-                `${data.open_positions}/${data.total_pairs}`;
+                `${emaData.total_trades > 0 ? '1' : '0'}/4`;
         })
         .catch(err => console.error('Error updating EMA status:', err));
 
