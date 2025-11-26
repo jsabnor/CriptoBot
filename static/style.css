@@ -629,13 +629,6 @@ tr:hover {
     background: #0d1117;
 }
 
-border-radius: 8px;
-font-weight: 600;
-font-size: 15px;
-cursor: pointer;
-transition: all 0.2s;
-box-shadow: 0 2px 8px rgba(35, 134, 54, 0.4);
-}
 
 .btn-primary:hover {
     transform: translateY(-2px);
@@ -824,13 +817,7 @@ box-shadow: 0 2px 8px rgba(35, 134, 54, 0.4);
     background: #0d1117;
 }
 
-border-radius: 8px;
-font-weight: 600;
-font-size: 15px;
-cursor: pointer;
-transition: all 0.2s;
-box-shadow: 0 2px 8px rgba(35, 134, 54, 0.4);
-}
+
 
 .btn-primary:hover {
     transform: translateY(-2px);
