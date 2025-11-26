@@ -159,6 +159,16 @@ function updateDualStatus() {
             document.getElementById('combined-equity').textContent =
                 `$${combined.total_equity.toFixed(2)}`;
 
+            // Update Trading Mode
+            const modeElement = document.getElementById('trading-mode');
+            if (modeElement && data.mode) {
+                const isLive = data.mode.toLowerCase() === 'live';
+                modeElement.innerHTML = isLive ?
+                    '<i class="fas fa-bolt"></i> Live Trading' :
+                    '<i class="fas fa-file-alt"></i> Paper Trading';
+                modeElement.className = `status-badge ${isLive ? 'live' : 'paper'}`;
+            }
+
             // Individual equities
             document.getElementById('combined-adx-equity').textContent =
                 `$${combined.adx_equity.toFixed(2)}`;

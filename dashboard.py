@@ -395,6 +395,7 @@ def api_dual_status():
         
         return jsonify({
             'combined': combined,
+            'mode': adx_state.get('mode', 'paper') if adx_state else (ema_state.get('mode', 'paper') if ema_state else 'paper'),
             'adx': {
                 'active': adx_state is not None,
                 'equity': combined['adx_equity'],
