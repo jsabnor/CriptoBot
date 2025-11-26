@@ -503,11 +503,21 @@ def api_comparison():
         ema_metrics = calculate_trade_metrics(ema_trades)
         
         # Equity y ROI (usando función helper que incluye posiciones)
-        adx_equity = get_real_equity(adx_state, 'adx')
-        ema_equity = get_real_equity(ema_state, 'ema')
+        # Con valores por defecto si no hay estado
+        try:
+            adx_equity = get_real_equity(adx_state, 'adx') if adx_state else 100.0
+        except Exception as e:
+            print(f"Error calculating ADX equity: {e}")
+            adx_equity = 100.0
         
-        adx_roi = ((adx_equity - 100) / 100 * 100)
-        ema_roi = ((ema_equity - 100) / 100 * 100)
+        try:
+            ema_equity = get_real_equity(ema_state, 'ema') if ema_state else 100.0
+        except Exception as e:
+            print(f"Error calculating EMA equity: {e}")
+            ema_equity = 100.0
+        
+        adx_roi = ((adx_equity - 100) / 100 * 100) if adx_equity > 0 else 0
+        ema_roi = ((ema_equity - 100) / 100 * 100) if ema_equity > 0 else 0
         
         return jsonify({
             'adx': {
@@ -522,6 +532,9 @@ def api_comparison():
             }
         })
     except Exception as e:
+        print(f"Error in /api/comparison: {e}")
+        import traceback
+        traceback.print_exc()
         return jsonify({'error': str(e)}), 500
 
 
