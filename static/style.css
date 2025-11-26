@@ -46,6 +46,37 @@ body {
 }
 
 .status-badge {
+    padding: 8px 16px;
+    border-radius: 20px;
+    font-weight: 600;
+    font-size: 14px;
+}
+
+.status-badge.running {
+    background: rgba(38, 166, 154, 0.2);
+    color: #26a69a;
+}
+
+.mode-badge {
+    padding: 8px 16px;
+    border-radius: 20px;
+    font-weight: 600;
+    font-size: 12px;
+    background: rgba(255, 107, 53, 0.2);
+    color: #ff6b35;
+}
+
+/* Metrics Cards */
+.metrics {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+    gap: 20px;
+    margin-bottom: 30px;
+}
+
+.card {
+    background: linear-gradient(135deg, #161b22 0%, #1c2128 100%);
+    padding: 25px;
     border-radius: 12px;
     text-align: center;
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
