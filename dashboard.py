@@ -131,15 +131,40 @@ def calculate_combined_metrics(adx_state, ema_state):
     Returns:
         dict con métricas combinadas
     """
-    # Equity
-    adx_equity = adx_state.get('total_equity', 0) if adx_state else 0
+    # Función helper para calcular equity real (cash + posiciones)
+    def get_real_equity(state, bot_type):
+        if not state:
+            return 0
+        
+        # Equity en efectivo
+        if bot_type == 'adx':
+            cash_equity = state.get('total_equity', 0)
+        else:  # ema
+            equity_dict = state.get('equity', {})
+            cash_equity = sum(equity_dict.values()) if isinstance(equity_dict, dict) else 0
+        
+        # Valor de posiciones abiertas
+        positions = state.get('positions', {})
+        position_value = 0
+        
+        for symbol, pos in positions.items():
+            if pos and isinstance(pos, dict):
+                qty = pos.get('qty', 0) or pos.get('size', 0)
+                if qty > 0:
+                    # Obtener precio actual del símbolo
+                    try:
+                        df = data_cache.get_data(symbol, '4h')
+                        if df is not None and len(df) > 0:
+                            current_price = df.iloc[-1]['close']
+                            position_value += qty * current_price
+                    except Exception as e:
+                        print(f"Error getting price for {symbol}: {e}")
+        
+        return cash_equity + position_value
     
-    # Para bot EMA, calcular equity total desde el dict de equity
-    if ema_state:
-        ema_equity_dict = ema_state.get('equity', {})
-        ema_equity = sum(ema_equity_dict.values()) if isinstance(ema_equity_dict, dict) else 0
-    else:
-        ema_equity = 0
+    # Calcular equity real de cada bot
+    adx_equity = get_real_equity(adx_state, 'adx')
+    ema_equity = get_real_equity(ema_state, 'ema')
     
     total_equity = adx_equity + ema_equity
     

@@ -1,5 +1,25 @@
 # Changelog
 
+## v2.1.1 - Equity Calculation Fix (2025-11-26)
+
+**Corrección Crítica: Cálculo de Equity**
+- **Problema**: El dashboard calculaba el equity solo sumando el efectivo disponible, ignorando el valor actual de las posiciones abiertas
+- **Solución**: Ahora el equity total incluye: `cash + (qty_posición × precio_actual)`
+- **Impacto**: Los porcentajes de distribución ADX/EMA ahora reflejan el valor real de cada bot
+- **Función modificada**: `calculate_combined_metrics()` en `dashboard.py`
+
+**Ejemplo del Fix:**
+```
+Antes (INCORRECTO):
+- EMA Cash: $8.45
+- EMA Equity Total: $8.45 ❌
+
+Después (CORRECTO):
+- EMA Cash: $8.45
+- Posición ETH: 0.00558 × $3500 = $19.53
+- EMA Equity Total: $8.45 + $19.53 = $27.98 ✅
+```
+
 ## v2.1.0 - Optimizer Integration (2025-11-25)
 
 **Nueva Funcionalidad: Optimizer Dashboard**
