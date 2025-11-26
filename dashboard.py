@@ -453,26 +453,6 @@ def api_bot_status(bot_name):
         return jsonify({'error': str(e)}), 500
 
 
-@app.route('/api/bot/<bot_name>/trades')
-def api_bot_trades(bot_name):
-    """Trades de un bot específico"""
-    try:
-        if bot_name not in ['adx', 'ema']:
-            return jsonify({'error': 'Invalid bot name. Use "adx" or "ema"'}), 400
-        
-        df = load_bot_trades(bot_name)
-        
-        if df.empty:
-            return jsonify([])
-        
-        # Últimos 20 trades
-        df_recent = df.tail(20).copy()
-        trades_list = df_recent.to_dict('records')
-        
-        return jsonify(trades_list)
-    except Exception as e:
-        return jsonify({'error': str(e)}), 500
-
 
 @app.route('/api/comparison')
 def api_comparison():
