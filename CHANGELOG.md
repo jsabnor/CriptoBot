@@ -1,5 +1,17 @@
 # Changelog
 
+## v2.2.0 - Verification Tool & Dashboard UX (2025-11-26)
+
+**✨ Nuevas Características**
+- **Herramienta de Verificación**: Nuevo script `verify_signals.py` para auditar y simular operaciones históricas.
+  - Permite verificar por qué el bot entró (o no) en una operación.
+  - Genera una tabla detallada con PnL simulado y razones de salida.
+  - Documentación completa en `VERIFY_SIGNALS.md`.
+
+**🎨 Mejoras de UX (Dashboard)**
+- **Spinners de Carga**: Añadidos indicadores visuales de carga en gráficos y tablas.
+- **Feedback Visual**: Mejorada la experiencia de usuario al actualizar datos, evitando parpadeos o espacios en blanco.
+
 ## v2.1.3 - Telegram Daily Summary Fix (2025-11-26)
 
 **Mejora: Notificaciones de Resumen Diario**

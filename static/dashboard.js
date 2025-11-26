@@ -9,6 +9,30 @@ let currentView = 'combined';
 let currentADXSymbol = 'ETH';
 let currentEMASymbol = 'ETH';
 
+// Loading Spinner Helpers
+function showLoading(elementId) {
+    const element = document.getElementById(elementId);
+    if (!element) return;
+
+    // Check if overlay already exists
+    if (element.querySelector('.spinner-overlay')) return;
+
+    const overlay = document.createElement('div');
+    overlay.className = 'spinner-overlay';
+    overlay.innerHTML = '<div class="spinner"></div>';
+    element.appendChild(overlay);
+}
+
+function hideLoading(elementId) {
+    const element = document.getElementById(elementId);
+    if (!element) return;
+
+    const overlay = element.querySelector('.spinner-overlay');
+    if (overlay) {
+        overlay.remove();
+    }
+}
+
 // ============================================================================
 // INITIALIZATION
 // ============================================================================
@@ -156,222 +180,80 @@ function updateDualStatus() {
             document.getElementById('combined-ema-pct').textContent =
                 `${combined.ema_percentage.toFixed(1)}%`;
 
-            // Render distribution chart
-            renderDistributionChart(combined.adx_equity, combined.ema_equity);
-        })
-        .catch(err => console.error('Error updating dual status:', err));
-}
 
-function renderDistributionChart(adxEquity, emaEquity) {
-    const data = [{
-        values: [adxEquity, emaEquity],
-        labels: ['Bot ADX', 'Bot EMA'],
-        type: 'pie',
-        marker: {
-            colors: ['#3498db', '#e74c3c']
-        },
-        textinfo: 'label+percent+value',
-        texttemplate: '%{label}<br>$%{value:.2f}<br>%{percent}',
-        hovertemplate: '%{label}<br>$%{value:.2f}<br>%{percent}<extra></extra>'
-    }];
+            function renderROIComparison(data) {
+                const chartData = [{
+                    x: ['Bot ADX', 'Bot EMA'],
+                    y: [data.adx.roi, data.ema.roi],
+                    type: 'bar',
+                    marker: {
+                        color: ['#3498db', '#e74c3c']
+                    },
+                    text: [
+                        `${data.adx.roi.toFixed(2)}%`,
+                        `${data.ema.roi.toFixed(2)}%`
+                    ],
+                    textposition: 'auto'
+                }];
 
-    const layout = {
-        height: 400,
-        showlegend: true,
-        paper_bgcolor: 'rgba(0,0,0,0)',
-        plot_bgcolor: 'rgba(0,0,0,0)',
-        font: { color: '#ecf0f1' }
-    };
+                const layout = {
+                    title: 'ROI (%)',
+                    height: 300,
+                    paper_bgcolor: 'rgba(0,0,0,0)',
+                    plot_bgcolor: 'rgba(0,0,0,0)',
+                    font: { color: '#ecf0f1' },
+                    yaxis: { title: 'ROI %' }
+                };
 
-    Plotly.newPlot('distribution-chart', data, layout, { responsive: true });
-}
+                Plotly.newPlot('roi-comparison-chart', chartData, layout, { responsive: true });
+            }
 
-// ============================================================================
-// ADX VIEW
-// ============================================================================
+            function renderWinRateComparison(data) {
+                const chartData = [{
+                    x: ['Bot ADX', 'Bot EMA'],
+                    y: [data.adx.win_rate, data.ema.win_rate],
+                    type: 'bar',
+                    marker: {
+                        color: ['#3498db', '#e74c3c']
+                    },
+                    text: [
+                        `${data.adx.win_rate.toFixed(1)}%`,
+                        `${data.ema.win_rate.toFixed(1)}%`
+                    ],
+                    textposition: 'auto'
+                }];
 
-function updateADXView() {
-    // Update ADX status from comparison endpoint
-    fetch('/api/comparison')
-        .then(r => r.json())
-        .then(data => {
-            const adxData = data.adx;
+                const layout = {
+                    title: 'Win Rate (%)',
+                    height: 300,
+                    paper_bgcolor: 'rgba(0,0,0,0)',
+                    plot_bgcolor: 'rgba(0,0,0,0)',
+                    font: { color: '#ecf0f1' },
+                    yaxis: { title: 'Win Rate %', range: [0, 100] }
+                };
 
-            document.getElementById('adx-equity').textContent =
-                `$${adxData.equity.toFixed(2)}`;
+                Plotly.newPlot('winrate-comparison-chart', chartData, layout, { responsive: true });
+            }
 
-            const roiElement = document.getElementById('adx-roi');
-            const roiValue = adxData.roi.toFixed(2);
-            roiElement.textContent = `${roiValue > 0 ? '+' : ''}${roiValue}%`;
-            roiElement.className = `metric-value ${roiValue >= 0 ? 'profit' : 'loss'}`;
+            function renderComparisonTable(data) {
+                const tbody = document.getElementById('comparison-table-body');
 
-            document.getElementById('adx-positions').textContent =
-                `${adxData.total_trades > 0 ? '1' : '0'}/4`;
-        })
-        .catch(err => console.error('Error updating ADX status:', err));
+                const metrics = [
+                    { name: 'Equity', adx: data.adx.equity, ema: data.ema.equity, format: '$' },
+                    { name: 'ROI', adx: data.adx.roi, ema: data.ema.roi, format: '%' },
+                    { name: 'Total Trades', adx: data.adx.total_trades, ema: data.ema.total_trades, format: '' },
+                    { name: 'Wins', adx: data.adx.wins, ema: data.ema.wins, format: '' },
+                    { name: 'Losses', adx: data.adx.losses, ema: data.ema.losses, format: '' },
+                    { name: 'Win Rate', adx: data.adx.win_rate, ema: data.ema.win_rate, format: '%' },
+                    { name: 'Total PnL', adx: data.adx.total_pnl, ema: data.ema.total_pnl, format: '$' }
+                ];
 
-    // Update ADX chart
-    updateADXChart(currentADXSymbol);
+                tbody.innerHTML = metrics.map(m => {
+                    const diff = m.adx - m.ema;
+                    const diffClass = diff > 0 ? 'profit' : (diff < 0 ? 'loss' : '');
+                    const diffText = diff > 0 ? `+${diff.toFixed(2)}` : diff.toFixed(2);
 
-    // Update ADX trades
-    updateADXTrades();
-}
-
-function updateADXChart(symbol) {
-    fetch(`/api/chart/${symbol}`)
-        .then(r => r.json())
-        .then(data => {
-            renderChart(data, 'adx-chart', 'ADX');
-        })
-        .catch(err => console.error('Error updating ADX chart:', err));
-}
-
-function updateADXTrades() {
-    fetch('/api/bot/adx/trades')
-        .then(r => r.json())
-        .then(trades => {
-            renderTradesTable(trades, 'adx-trades-table');
-        })
-        .catch(err => console.error('Error updating ADX trades:', err));
-}
-
-// ============================================================================
-// EMA VIEW
-// ============================================================================
-
-function updateEMAView() {
-    // Update EMA status from comparison endpoint
-    fetch('/api/comparison')
-        .then(r => r.json())
-        .then(data => {
-            const emaData = data.ema;
-
-            document.getElementById('ema-equity').textContent =
-                `$${emaData.equity.toFixed(2)}`;
-
-            const roiElement = document.getElementById('ema-roi');
-            const roiValue = emaData.roi.toFixed(2);
-            roiElement.textContent = `${roiValue > 0 ? '+' : ''}${roiValue}%`;
-            roiElement.className = `metric-value ${roiValue >= 0 ? 'profit' : 'loss'}`;
-
-            document.getElementById('ema-positions').textContent =
-                `${emaData.total_trades > 0 ? '1' : '0'}/4`;
-        })
-        .catch(err => console.error('Error updating EMA status:', err));
-
-    // Update EMA chart
-    updateEMAChart(currentEMASymbol);
-
-    // Update EMA trades
-    updateEMATrades();
-}
-
-function updateEMAChart(symbol) {
-    fetch(`/api/chart/${symbol}`)
-        .then(r => r.json())
-        .then(data => {
-            renderChart(data, 'ema-chart', 'EMA');
-        })
-        .catch(err => console.error('Error updating EMA chart:', err));
-}
-
-function updateEMATrades() {
-    fetch('/api/bot/ema/trades')
-        .then(r => r.json())
-        .then(trades => {
-            renderTradesTable(trades, 'ema-trades-table');
-        })
-        .catch(err => console.error('Error updating EMA trades:', err));
-}
-
-// ============================================================================
-// COMPARISON VIEW
-// ============================================================================
-
-function updateComparisonView() {
-    fetch('/api/comparison')
-        .then(r => r.json())
-        .then(data => {
-            renderROIComparison(data);
-            renderWinRateComparison(data);
-            renderComparisonTable(data);
-        })
-        .catch(err => console.error('Error updating comparison:', err));
-}
-
-function renderROIComparison(data) {
-    const chartData = [{
-        x: ['Bot ADX', 'Bot EMA'],
-        y: [data.adx.roi, data.ema.roi],
-        type: 'bar',
-        marker: {
-            color: ['#3498db', '#e74c3c']
-        },
-        text: [
-            `${data.adx.roi.toFixed(2)}%`,
-            `${data.ema.roi.toFixed(2)}%`
-        ],
-        textposition: 'auto'
-    }];
-
-    const layout = {
-        title: 'ROI (%)',
-        height: 300,
-        paper_bgcolor: 'rgba(0,0,0,0)',
-        plot_bgcolor: 'rgba(0,0,0,0)',
-        font: { color: '#ecf0f1' },
-        yaxis: { title: 'ROI %' }
-    };
-
-    Plotly.newPlot('roi-comparison-chart', chartData, layout, { responsive: true });
-}
-
-function renderWinRateComparison(data) {
-    const chartData = [{
-        x: ['Bot ADX', 'Bot EMA'],
-        y: [data.adx.win_rate, data.ema.win_rate],
-        type: 'bar',
-        marker: {
-            color: ['#3498db', '#e74c3c']
-        },
-        text: [
-            `${data.adx.win_rate.toFixed(1)}%`,
-            `${data.ema.win_rate.toFixed(1)}%`
-        ],
-        textposition: 'auto'
-    }];
-
-    const layout = {
-        title: 'Win Rate (%)',
-        height: 300,
-        paper_bgcolor: 'rgba(0,0,0,0)',
-        plot_bgcolor: 'rgba(0,0,0,0)',
-        font: { color: '#ecf0f1' },
-        yaxis: { title: 'Win Rate %', range: [0, 100] }
-    };
-
-    Plotly.newPlot('winrate-comparison-chart', chartData, layout, { responsive: true });
-}
-
-function renderComparisonTable(data) {
-    const tbody = document.getElementById('comparison-table-body');
-
-    const metrics = [
-        { name: 'Equity', adx: data.adx.equity, ema: data.ema.equity, format: '$' },
-        { name: 'ROI', adx: data.adx.roi, ema: data.ema.roi, format: '%' },
-        { name: 'Total Trades', adx: data.adx.total_trades, ema: data.ema.total_trades, format: '' },
-        { name: 'Wins', adx: data.adx.wins, ema: data.ema.wins, format: '' },
-        { name: 'Losses', adx: data.adx.losses, ema: data.ema.losses, format: '' },
-        { name: 'Win Rate', adx: data.adx.win_rate, ema: data.ema.win_rate, format: '%' },
-        { name: 'Total PnL', adx: data.adx.total_pnl, ema: data.ema.total_pnl, format: '$' }
-    ];
-
-    tbody.innerHTML = metrics.map(m => {
-        const diff = m.adx - m.ema;
-        const diffClass = diff > 0 ? 'profit' : (diff < 0 ? 'loss' : '');
-        const diffText = diff > 0 ? `+${diff.toFixed(2)}` : diff.toFixed(2);
-
-        return `
+                    return `
             <tr>
                 <td>${m.name}</td>
                 <td class="adx-text">${m.format === '$' ? '$' : ''}${m.adx.toFixed(2)}${m.format === '%' ? '%' : ''}</td>
@@ -379,375 +261,375 @@ function renderComparisonTable(data) {
                 <td class="${diffClass}">${m.format === '$' ? '$' : ''}${diffText}${m.format === '%' ? '%' : ''}</td>
             </tr>
         `;
-    }).join('');
-}
+                }).join('');
+            }
 
-// ============================================================================
-// CHART RENDERING (Shared)
-// ============================================================================
+            // ============================================================================
+            // CHART RENDERING (Shared)
+            // ============================================================================
 
-function renderChart(data, containerId, botType) {
-    const candles = data.candles;
+            function renderChart(data, containerId, botType) {
+                const candles = data.candles;
 
-    // Separate closed candles from current candle
-    const closedCandles = candles.filter(c => !c.is_current);
-    const currentCandle = candles.find(c => c.is_current);
+                // Separate closed candles from current candle
+                const closedCandles = candles.filter(c => !c.is_current);
+                const currentCandle = candles.find(c => c.is_current);
 
-    // Calculate range for last 50 candles to reduce clutter
-    let xrange = null;
-    if (closedCandles.length > 50) {
-        const start = closedCandles[closedCandles.length - 50].timestamp;
-        const end = closedCandles[closedCandles.length - 1].timestamp;
-        xrange = [start, end];
-    }
+                // Calculate range for last 50 candles to reduce clutter
+                let xrange = null;
+                if (closedCandles.length > 50) {
+                    const start = closedCandles[closedCandles.length - 50].timestamp;
+                    const end = closedCandles[closedCandles.length - 1].timestamp;
+                    xrange = [start, end];
+                }
 
-    // Layout configuration
-    const layout = {
-        height: 500,
-        margin: { b: 80, r: 50, t: 30, l: 50 },
-        paper_bgcolor: 'rgba(0,0,0,0)',
-        plot_bgcolor: 'rgba(0,0,0,0)',
-        font: { color: '#ecf0f1' },
-        xaxis: {
-            rangeslider: { visible: false },
-            anchor: 'y',
-            range: xrange,
-            tickformat: '%d/%m %H:%M',
-            tickangle: -45,
-            automargin: true,
-            tickmode: 'auto',
-            nticks: 10
-        },
-        yaxis: { domain: [0, 1] }, // Full height for main chart
-        grid: { rows: 1, columns: 1, pattern: 'independent' },
-        showlegend: true,
-        legend: { orientation: 'h', y: 1.02, x: 0.5, xanchor: 'center' }
-    };
+                // Layout configuration
+                const layout = {
+                    height: 500,
+                    margin: { b: 80, r: 50, t: 30, l: 50 },
+                    paper_bgcolor: 'rgba(0,0,0,0)',
+                    plot_bgcolor: 'rgba(0,0,0,0)',
+                    font: { color: '#ecf0f1' },
+                    xaxis: {
+                        rangeslider: { visible: false },
+                        anchor: 'y',
+                        range: xrange,
+                        tickformat: '%d/%m %H:%M',
+                        tickangle: -45,
+                        automargin: true,
+                        tickmode: 'auto',
+                        nticks: 10
+                    },
+                    yaxis: { domain: [0, 1] }, // Full height for main chart
+                    grid: { rows: 1, columns: 1, pattern: 'independent' },
+                    showlegend: true,
+                    legend: { orientation: 'h', y: 1.02, x: 0.5, xanchor: 'center' }
+                };
 
-    // Base traces (Candlesticks)
-    const traces = [];
+                // Base traces (Candlesticks)
+                const traces = [];
 
-    // 1. Candlestick Trace
-    traces.push({
-        x: closedCandles.map(c => c.timestamp),
-        open: closedCandles.map(c => c.open),
-        high: closedCandles.map(c => c.high),
-        low: closedCandles.map(c => c.low),
-        close: closedCandles.map(c => c.close),
-        type: 'candlestick',
-        name: data.symbol,
-        increasing: { line: { color: '#26a69a' } },
-        decreasing: { line: { color: '#ef5350' } }
-    });
+                // 1. Candlestick Trace
+                traces.push({
+                    x: closedCandles.map(c => c.timestamp),
+                    open: closedCandles.map(c => c.open),
+                    high: closedCandles.map(c => c.high),
+                    low: closedCandles.map(c => c.low),
+                    close: closedCandles.map(c => c.close),
+                    type: 'candlestick',
+                    name: data.symbol,
+                    increasing: { line: { color: '#26a69a' } },
+                    decreasing: { line: { color: '#ef5350' } }
+                });
 
-    // 2. Current Candle (Ghost)
-    if (currentCandle) {
-        traces.push({
-            x: [currentCandle.timestamp],
-            open: [currentCandle.open],
-            high: [currentCandle.high],
-            low: [currentCandle.low],
-            close: [currentCandle.close],
-            type: 'candlestick',
-            name: 'Actual (en progreso)',
-            increasing: { line: { color: '#26a69a', width: 1, dash: 'dot' }, fillcolor: 'rgba(38, 166, 154, 0.3)' },
-            decreasing: { line: { color: '#ef5350', width: 1, dash: 'dot' }, fillcolor: 'rgba(239, 83, 80, 0.3)' },
-            showlegend: false
-        });
-    }
+                // 2. Current Candle (Ghost)
+                if (currentCandle) {
+                    traces.push({
+                        x: [currentCandle.timestamp],
+                        open: [currentCandle.open],
+                        high: [currentCandle.high],
+                        low: [currentCandle.low],
+                        close: [currentCandle.close],
+                        type: 'candlestick',
+                        name: 'Actual (en progreso)',
+                        increasing: { line: { color: '#26a69a', width: 1, dash: 'dot' }, fillcolor: 'rgba(38, 166, 154, 0.3)' },
+                        decreasing: { line: { color: '#ef5350', width: 1, dash: 'dot' }, fillcolor: 'rgba(239, 83, 80, 0.3)' },
+                        showlegend: false
+                    });
+                }
 
-    // Update Indicator Panels (Last Closed Candle)
-    if (closedCandles.length > 0) {
-        const last = closedCandles[closedCandles.length - 1];
-        updateIndicatorsPanel(botType, last);
-    }
+                // Update Indicator Panels (Last Closed Candle)
+                if (closedCandles.length > 0) {
+                    const last = closedCandles[closedCandles.length - 1];
+                    updateIndicatorsPanel(botType, last);
+                }
 
-    // Strategy Specific Chart Indicators
-    if (botType === 'ADX') {
-        // MA 50
-        traces.push({
-            x: closedCandles.map(c => c.timestamp),
-            y: closedCandles.map(c => c.ma),
-            type: 'scatter',
-            mode: 'lines',
-            name: 'MA 50',
-            line: { color: '#f39c12', width: 1.5 }
-        });
+                // Strategy Specific Chart Indicators
+                if (botType === 'ADX') {
+                    // MA 50
+                    traces.push({
+                        x: closedCandles.map(c => c.timestamp),
+                        y: closedCandles.map(c => c.ma),
+                        type: 'scatter',
+                        mode: 'lines',
+                        name: 'MA 50',
+                        line: { color: '#f39c12', width: 1.5 }
+                    });
 
-        // MA 200
-        traces.push({
-            x: closedCandles.map(c => c.timestamp),
-            y: closedCandles.map(c => c.long_ma),
-            type: 'scatter',
-            mode: 'lines',
-            name: 'MA 200',
-            line: { color: '#e74c3c', width: 1.5 }
-        });
+                    // MA 200
+                    traces.push({
+                        x: closedCandles.map(c => c.timestamp),
+                        y: closedCandles.map(c => c.long_ma),
+                        type: 'scatter',
+                        mode: 'lines',
+                        name: 'MA 200',
+                        line: { color: '#e74c3c', width: 1.5 }
+                    });
 
-    } else if (botType === 'EMA') {
-        // EMA 15
-        traces.push({
-            x: closedCandles.map(c => c.timestamp),
-            y: closedCandles.map(c => c.ema_fast),
-            type: 'scatter',
-            mode: 'lines',
-            name: 'EMA 15',
-            line: { color: '#3498db', width: 1.5 }
-        });
+                } else if (botType === 'EMA') {
+                    // EMA 15
+                    traces.push({
+                        x: closedCandles.map(c => c.timestamp),
+                        y: closedCandles.map(c => c.ema_fast),
+                        type: 'scatter',
+                        mode: 'lines',
+                        name: 'EMA 15',
+                        line: { color: '#3498db', width: 1.5 }
+                    });
 
-        // EMA 30
-        traces.push({
-            x: closedCandles.map(c => c.timestamp),
-            y: closedCandles.map(c => c.ema_slow),
-            type: 'scatter',
-            mode: 'lines',
-            name: 'EMA 30',
-            line: { color: '#9b59b6', width: 1.5 }
-        });
-    }
+                    // EMA 30
+                    traces.push({
+                        x: closedCandles.map(c => c.timestamp),
+                        y: closedCandles.map(c => c.ema_slow),
+                        type: 'scatter',
+                        mode: 'lines',
+                        name: 'EMA 30',
+                        line: { color: '#9b59b6', width: 1.5 }
+                    });
+                }
 
-    Plotly.newPlot(containerId, traces, layout, { responsive: true });
-}
+                Plotly.newPlot(containerId, traces, layout, { responsive: true });
+            }
 
-function updateIndicatorsPanel(botType, candle) {
-    if (botType === 'ADX') {
-        // ADX Value
-        const adxEl = document.getElementById('adx-val');
-        if (adxEl) {
-            adxEl.textContent = candle.adx ? candle.adx.toFixed(2) : '--';
-            adxEl.className = `indicator-value ${candle.adx > 25 ? 'bullish' : 'bearish'}`;
-        }
+            function updateIndicatorsPanel(botType, candle) {
+                if (botType === 'ADX') {
+                    // ADX Value
+                    const adxEl = document.getElementById('adx-val');
+                    if (adxEl) {
+                        adxEl.textContent = candle.adx ? candle.adx.toFixed(2) : '--';
+                        adxEl.className = `indicator-value ${candle.adx > 25 ? 'bullish' : 'bearish'}`;
+                    }
 
-        // Trend (MA50)
-        const trendEl = document.getElementById('adx-trend');
-        if (trendEl) {
-            const isBullish = candle.close > candle.ma;
-            trendEl.textContent = isBullish ? 'BULLISH' : 'BEARISH';
-            trendEl.className = `indicator-value ${isBullish ? 'bullish' : 'bearish'}`;
-        }
+                    // Trend (MA50)
+                    const trendEl = document.getElementById('adx-trend');
+                    if (trendEl) {
+                        const isBullish = candle.close > candle.ma;
+                        trendEl.textContent = isBullish ? 'BULLISH' : 'BEARISH';
+                        trendEl.className = `indicator-value ${isBullish ? 'bullish' : 'bearish'}`;
+                    }
 
-        // ATR
-        const atrEl = document.getElementById('adx-atr');
-        if (atrEl) {
-            atrEl.textContent = candle.atr ? candle.atr.toFixed(2) : '--';
-            atrEl.className = 'indicator-value neutral';
-        }
+                    // ATR
+                    const atrEl = document.getElementById('adx-atr');
+                    if (atrEl) {
+                        atrEl.textContent = candle.atr ? candle.atr.toFixed(2) : '--';
+                        atrEl.className = 'indicator-value neutral';
+                    }
 
-    } else if (botType === 'EMA') {
-        // EMA Fast
-        const fastEl = document.getElementById('ema-fast-val');
-        if (fastEl) fastEl.textContent = candle.ema_fast ? candle.ema_fast.toFixed(2) : '--';
+                } else if (botType === 'EMA') {
+                    // EMA Fast
+                    const fastEl = document.getElementById('ema-fast-val');
+                    if (fastEl) fastEl.textContent = candle.ema_fast ? candle.ema_fast.toFixed(2) : '--';
 
-        // EMA Slow
-        const slowEl = document.getElementById('ema-slow-val');
-        if (slowEl) slowEl.textContent = candle.ema_slow ? candle.ema_slow.toFixed(2) : '--';
+                    // EMA Slow
+                    const slowEl = document.getElementById('ema-slow-val');
+                    if (slowEl) slowEl.textContent = candle.ema_slow ? candle.ema_slow.toFixed(2) : '--';
 
-        // Signal
-        const signalEl = document.getElementById('ema-signal');
-        if (signalEl) {
-            const isBuy = candle.ema_fast > candle.ema_slow;
-            signalEl.textContent = isBuy ? 'BUY ZONE' : 'SELL ZONE';
-            signalEl.className = `indicator-value ${isBuy ? 'bullish' : 'bearish'}`;
-        }
-    }
-}
+                    // Signal
+                    const signalEl = document.getElementById('ema-signal');
+                    if (signalEl) {
+                        const isBuy = candle.ema_fast > candle.ema_slow;
+                        signalEl.textContent = isBuy ? 'BUY ZONE' : 'SELL ZONE';
+                        signalEl.className = `indicator-value ${isBuy ? 'bullish' : 'bearish'}`;
+                    }
+                }
+            }
 
-// ============================================================================
-// UTILITY FUNCTIONS
-// ============================================================================
+            // ============================================================================
+            // UTILITY FUNCTIONS
+            // ============================================================================
 
-function updateLastUpdateTime() {
-    const now = new Date();
-    document.getElementById('last-update').textContent =
-        now.toLocaleTimeString('es-ES');
-}
+            function updateLastUpdateTime() {
+                const now = new Date();
+                document.getElementById('last-update').textContent =
+                    now.toLocaleTimeString('es-ES');
+            }
 
-// ============================================================================
-// OPTIMIZER FUNCTIONS
-// ============================================================================
+            // ============================================================================
+            // OPTIMIZER FUNCTIONS
+            // ============================================================================
 
-function setupOptimizerView() {
-    const runBtn = document.getElementById('run-optimizer-btn');
-    if (runBtn) {
-        runBtn.addEventListener('click', runOptimization);
-    }
-}
+            function setupOptimizerView() {
+                const runBtn = document.getElementById('run-optimizer-btn');
+                if (runBtn) {
+                    runBtn.addEventListener('click', runOptimization);
+                }
+            }
 
-function getSelectedSymbols() {
-    const checkboxes = document.querySelectorAll('.symbol-checkbox:checked');
-    return Array.from(checkboxes).map(cb => cb.value);
-}
+            function getSelectedSymbols() {
+                const checkboxes = document.querySelectorAll('.symbol-checkbox:checked');
+                return Array.from(checkboxes).map(cb => cb.value);
+            }
 
-async function runOptimization() {
-    const strategy = document.getElementById('opt-strategy').value;
-    const symbols = getSelectedSymbols();
+            async function runOptimization() {
+                const strategy = document.getElementById('opt-strategy').value;
+                const symbols = getSelectedSymbols();
 
-    if (symbols.length === 0) {
-        alert('Por favor selecciona al menos un símbolo');
-        return;
-    }
+                if (symbols.length === 0) {
+                    alert('Por favor selecciona al menos un símbolo');
+                    return;
+                }
 
-    // Disable button and show progress
-    const runBtn = document.getElementById('run-optimizer-btn');
-    runBtn.disabled = true;
-    runBtn.textContent = '⏳ Ejecutando...';
+                // Disable button and show progress
+                const runBtn = document.getElementById('run-optimizer-btn');
+                runBtn.disabled = true;
+                runBtn.textContent = '⏳ Ejecutando...';
 
-    document.getElementById('optimizer-config').style.display = 'none';
-    document.getElementById('optimizer-results').style.display = 'none';
-    document.getElementById('optimizer-progress').style.display = 'block';
+                document.getElementById('optimizer-config').style.display = 'none';
+                document.getElementById('optimizer-results').style.display = 'none';
+                document.getElementById('optimizer-progress').style.display = 'block';
 
-    // Simulate progress (since we can't get real progress from sync call)
-    const progressFill = document.getElementById('progress-fill');
-    let progress = 0;
-    const progressInterval = setInterval(() => {
-        progress += 2;
-        if (progress <= 90) {
-            progressFill.style.width = progress + '%';
-        }
-    }, 1000);
+                // Simulate progress (since we can't get real progress from sync call)
+                const progressFill = document.getElementById('progress-fill');
+                let progress = 0;
+                const progressInterval = setInterval(() => {
+                    progress += 2;
+                    if (progress <= 90) {
+                        progressFill.style.width = progress + '%';
+                    }
+                }, 1000);
 
-    try {
-        const response = await fetch('/api/optimizer/run', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({
-                strategy: strategy,
-                symbols: symbols
-            })
-        });
+                try {
+                    const response = await fetch('/api/optimizer/run', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify({
+                            strategy: strategy,
+                            symbols: symbols
+                        })
+                    });
 
-        clearInterval(progressInterval);
-        progressFill.style.width = '100%';
+                    clearInterval(progressInterval);
+                    progressFill.style.width = '100%';
 
-        if (!response.ok) {
-            throw new Error(`HTTP error! status: ${response.status}`);
-        }
+                    if (!response.ok) {
+                        throw new Error(`HTTP error! status: ${response.status}`);
+                    }
 
-        const data = await response.json();
+                    const data = await response.json();
 
-        // Hide progress, show results
-        setTimeout(() => {
-            document.getElementById('optimizer-progress').style.display = 'none';
-            displayResults(data);
-        }, 500);
+                    // Hide progress, show results
+                    setTimeout(() => {
+                        document.getElementById('optimizer-progress').style.display = 'none';
+                        displayResults(data);
+                    }, 500);
 
-    } catch (error) {
-        clearInterval(progressInterval);
-        console.error('Error running optimization:', error);
-        alert('Error ejecutando optimización: ' + error.message);
+                } catch (error) {
+                    clearInterval(progressInterval);
+                    console.error('Error running optimization:', error);
+                    alert('Error ejecutando optimización: ' + error.message);
 
-        // Reset UI
-        document.getElementById('optimizer-progress').style.display = 'none';
-        document.getElementById('optimizer-config').style.display = 'block';
-    } finally {
-        runBtn.disabled = false;
-        runBtn.textContent = '🚀 Iniciar Optimización';
-    }
-}
+                    // Reset UI
+                    document.getElementById('optimizer-progress').style.display = 'none';
+                    document.getElementById('optimizer-config').style.display = 'block';
+                } finally {
+                    runBtn.disabled = false;
+                    runBtn.textContent = '🚀 Iniciar Optimización';
+                }
+            }
 
-function displayResults(data) {
-    const resultsContainer = document.getElementById('optimizer-results');
-    const resultsInfo = document.getElementById('results-info');
+            function displayResults(data) {
+                const resultsContainer = document.getElementById('optimizer-results');
+                const resultsInfo = document.getElementById('results-info');
 
-    // Update info
-    const timestamp = new Date(data.timestamp).toLocaleString('es-ES');
-    resultsInfo.textContent = `Optimización ${data.strategy.toUpperCase()} completada el ${timestamp}. Total de configuraciones probadas: ${data.total_configs}`;
+                // Update info
+                const timestamp = new Date(data.timestamp).toLocaleString('es-ES');
+                resultsInfo.textContent = `Optimización ${data.strategy.toUpperCase()} completada el ${timestamp}. Total de configuraciones probadas: ${data.total_configs}`;
 
-    // Render tables
-    renderResultsTable('results-table-score', data.top_score, data.strategy);
-    renderResultsTable('results-table-roi', data.top_roi, data.strategy);
+                // Render tables
+                renderResultsTable('results-table-score', data.top_score, data.strategy);
+                renderResultsTable('results-table-roi', data.top_roi, data.strategy);
 
-    // Show results
-    resultsContainer.style.display = 'block';
-    document.getElementById('optimizer-config').style.display = 'block';
-}
+                // Show results
+                resultsContainer.style.display = 'block';
+                document.getElementById('optimizer-config').style.display = 'block';
+            }
 
-function renderResultsTable(tableId, results, strategy) {
-    const table = document.getElementById(tableId);
-    const tbody = table.querySelector('tbody');
-    tbody.innerHTML = '';
+            function renderResultsTable(tableId, results, strategy) {
+                const table = document.getElementById(tableId);
+                const tbody = table.querySelector('tbody');
+                tbody.innerHTML = '';
 
-    results.forEach((result, index) => {
-        const row = document.createElement('tr');
+                results.forEach((result, index) => {
+                    const row = document.createElement('tr');
 
-        // Rank
-        const rankCell = document.createElement('td');
-        rankCell.textContent = index + 1;
-        row.appendChild(rankCell);
+                    // Rank
+                    const rankCell = document.createElement('td');
+                    rankCell.textContent = index + 1;
+                    row.appendChild(rankCell);
 
-        // Parameters
-        const paramCell = document.createElement('td');
-        paramCell.className = 'param-cell';
-        if (strategy === 'ema') {
-            paramCell.textContent = `EMA(${result.fast},${result.slow})`;
-            if (result.use_filter) paramCell.textContent += ' +Filter';
-            if (result.rsi_filter) paramCell.textContent += ' +RSI';
-            if (result.atr_sl) paramCell.textContent += ` +ATR(${result.atr_mult})`;
-        } else {
-            paramCell.textContent = `ROC(${result.period},${result.ma_period})`;
-            if (result.min_roc > 0) paramCell.textContent += ` minROC:${result.min_roc}`;
-            if (result.use_trend_filter) paramCell.textContent += ' +Trend';
-            if (result.rsi_filter) paramCell.textContent += ' +RSI';
-            if (result.atr_sl) paramCell.textContent += ` +ATR(${result.atr_mult})`;
-        }
-        row.appendChild(paramCell);
+                    // Parameters
+                    const paramCell = document.createElement('td');
+                    paramCell.className = 'param-cell';
+                    if (strategy === 'ema') {
+                        paramCell.textContent = `EMA(${result.fast},${result.slow})`;
+                        if (result.use_filter) paramCell.textContent += ' +Filter';
+                        if (result.rsi_filter) paramCell.textContent += ' +RSI';
+                        if (result.atr_sl) paramCell.textContent += ` +ATR(${result.atr_mult})`;
+                    } else {
+                        paramCell.textContent = `ROC(${result.period},${result.ma_period})`;
+                        if (result.min_roc > 0) paramCell.textContent += ` minROC:${result.min_roc}`;
+                        if (result.use_trend_filter) paramCell.textContent += ' +Trend';
+                        if (result.rsi_filter) paramCell.textContent += ' +RSI';
+                        if (result.atr_sl) paramCell.textContent += ` +ATR(${result.atr_mult})`;
+                    }
+                    row.appendChild(paramCell);
 
-        // ROI
-        const roiCell = document.createElement('td');
-        roiCell.textContent = result.avg_roi.toFixed(2) + '%';
-        roiCell.className = result.avg_roi > 0 ? 'positive' : 'negative';
-        row.appendChild(roiCell);
+                    // ROI
+                    const roiCell = document.createElement('td');
+                    roiCell.textContent = result.avg_roi.toFixed(2) + '%';
+                    roiCell.className = result.avg_roi > 0 ? 'positive' : 'negative';
+                    row.appendChild(roiCell);
 
-        // Win Rate
-        const wrCell = document.createElement('td');
-        wrCell.textContent = result.avg_win_rate.toFixed(1) + '%';
-        row.appendChild(wrCell);
+                    // Win Rate
+                    const wrCell = document.createElement('td');
+                    wrCell.textContent = result.avg_win_rate.toFixed(1) + '%';
+                    row.appendChild(wrCell);
 
-        // Drawdown
-        const ddCell = document.createElement('td');
-        ddCell.textContent = result.avg_drawdown.toFixed(2) + '%';
-        ddCell.className = 'negative';
-        row.appendChild(ddCell);
+                    // Drawdown
+                    const ddCell = document.createElement('td');
+                    ddCell.textContent = result.avg_drawdown.toFixed(2) + '%';
+                    ddCell.className = 'negative';
+                    row.appendChild(ddCell);
 
-        // Sharpe
-        const sharpeCell = document.createElement('td');
-        sharpeCell.textContent = result.avg_sharpe.toFixed(2);
-        row.appendChild(sharpeCell);
+                    // Sharpe
+                    const sharpeCell = document.createElement('td');
+                    sharpeCell.textContent = result.avg_sharpe.toFixed(2);
+                    row.appendChild(sharpeCell);
 
-        // Score
-        const scoreCell = document.createElement('td');
-        scoreCell.textContent = result.score.toFixed(2);
-        scoreCell.className = 'positive';
-        row.appendChild(scoreCell);
+                    // Score
+                    const scoreCell = document.createElement('td');
+                    scoreCell.textContent = result.score.toFixed(2);
+                    scoreCell.className = 'positive';
+                    row.appendChild(scoreCell);
 
-        tbody.appendChild(row);
-    });
-}
+                    tbody.appendChild(row);
+                });
+            }
 
-async function loadLastOptimizerResults() {
-    const strategy = document.getElementById('opt-strategy').value;
+            async function loadLastOptimizerResults() {
+                const strategy = document.getElementById('opt-strategy').value;
 
-    try {
-        const response = await fetch(`/api/optimizer/last-results?strategy=${strategy}`);
+                try {
+                    const response = await fetch(`/api/optimizer/last-results?strategy=${strategy}`);
 
-        if (response.ok) {
-            const data = await response.json();
-            displayResults(data);
-        }
-    } catch (error) {
-        console.log('No previous results found');
-    }
-}
+                    if (response.ok) {
+                        const data = await response.json();
+                        displayResults(data);
+                    }
+                } catch (error) {
+                    console.log('No previous results found');
+                }
+            }
 
-// Initialize optimizer when view is switched
-const originalSwitchView = switchView;
-switchView = function (viewName) {
-    originalSwitchView(viewName);
+            // Initialize optimizer when view is switched
+            const originalSwitchView = switchView;
+            switchView = function (viewName) {
+                originalSwitchView(viewName);
 
-    if (viewName === 'optimizer') {
-        setupOptimizerView();
-        loadLastOptimizerResults();
-    }
-};
+                if (viewName === 'optimizer') {
+                    setupOptimizerView();
+                    loadLastOptimizerResults();
+                }
+            };
