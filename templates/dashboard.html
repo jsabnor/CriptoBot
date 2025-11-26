@@ -4,7 +4,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>🤖 Trading Bot Dashboard v2.0.6 - Dual Strategy</title>
+    <title>🤖 Trading Bot Dashboard v2.1.0 - Dual Strategy</title>
     <script src="https://cdn.plot.ly/plotly-2.27.0.min.js"></script>
     <link rel="stylesheet" href="/static/style.css">
 </head>
@@ -13,7 +13,7 @@
     <!-- Header -->
     <div class="header">
         <div>
-            <h1>🤖 Trading Bot Dashboard v2.0.6</h1>
+            <h1>🤖 Trading Bot Dashboard v2.1.0</h1>
             <p class="subtitle">Dual Strategy: ADX + EMA Crossover | Timeframe: 4h</p>
         </div>
         <div class="status-container">
@@ -36,13 +36,13 @@
         <button class="tab" data-view="comparison">
             ⚖️ Comparación
         </button>
+        <button class="tab" data-view="optimizer">
+            🔧 Optimizer
+        </button>
     </div>
 
-    <!-- ============================================ -->
     <!-- VISTA COMBINADA -->
-    <!-- ============================================ -->
     <div id="combined-view" class="view active">
-        <!-- Metrics Cards -->
         <div class="metrics">
             <div class="card">
                 <div class="card-icon">💰</div>
@@ -78,20 +78,15 @@
                 <small class="metric-detail">ADX / EMA</small>
             </div>
         </div>
-
-        <!-- Distribution Chart -->
         <div class="chart-container">
             <h2>📊 Distribución de Capital</h2>
             <div id="distribution-chart"></div>
         </div>
     </div>
 
-    <!-- ============================================ -->
     <!-- VISTA BOT ADX -->
-    <!-- ============================================ -->
     <div id="adx-view" class="view">
         <div class="chart-row">
-            <!-- ADX Indicators Panel (Side) -->
             <div class="indicators-panel side-panel">
                 <div class="indicator-card">
                     <div class="indicator-label">ADX (14)</div>
@@ -106,8 +101,6 @@
                     <div id="adx-atr" class="indicator-value">--</div>
                 </div>
             </div>
-
-            <!-- ADX Chart Area -->
             <div class="chart-area">
                 <div class="chart-selector">
                     <h2>📈 Gráfico Bot ADX</h2>
@@ -121,8 +114,6 @@
                 <div id="adx-chart" class="chart-container"></div>
             </div>
         </div>
-
-        <!-- ADX Metrics -->
         <div class="metrics">
             <div class="card adx-card">
                 <div class="card-icon">💰</div>
@@ -145,20 +136,15 @@
                 <p class="metric-value" style="font-size: 1.2rem;">ADX + ATR</p>
             </div>
         </div>
-
-        <!-- ADX Trades Table -->
         <div class="trades-section">
             <h2>📋 Últimos Trades - Bot ADX</h2>
             <div id="adx-trades-table" class="trades-table"></div>
         </div>
     </div>
 
-    <!-- ============================================ -->
     <!-- VISTA BOT EMA -->
-    <!-- ============================================ -->
     <div id="ema-view" class="view">
         <div class="chart-row">
-            <!-- EMA Indicators Panel (Side) -->
             <div class="indicators-panel side-panel">
                 <div class="indicator-card">
                     <div class="indicator-label">EMA 15</div>
@@ -173,8 +159,6 @@
                     <div id="ema-signal" class="indicator-value">--</div>
                 </div>
             </div>
-
-            <!-- EMA Chart Area -->
             <div class="chart-area">
                 <div class="chart-selector">
                     <h2>📈 Gráfico Bot EMA</h2>
@@ -188,8 +172,6 @@
                 <div id="ema-chart" class="chart-container"></div>
             </div>
         </div>
-
-        <!-- EMA Metrics -->
         <div class="metrics">
             <div class="card ema-card">
                 <div class="card-icon">💰</div>
@@ -212,21 +194,15 @@
                 <p class="metric-value" style="font-size: 1.2rem;">EMA 15/30</p>
             </div>
         </div>
-
-        <!-- EMA Trades Table -->
         <div class="trades-section">
             <h2>📋 Últimos Trades - Bot EMA</h2>
             <div id="ema-trades-table" class="trades-table"></div>
         </div>
     </div>
 
-    <!-- ============================================ -->
     <!-- VISTA COMPARACIÓN -->
-    <!-- ============================================ -->
     <div id="comparison-view" class="view">
         <h2>⚖️ Comparación de Rendimiento</h2>
-
-        <!-- Comparison Charts -->
         <div class="comparison-grid">
             <div class="chart-container">
                 <h3>ROI Comparativo</h3>
@@ -237,8 +213,6 @@
                 <div id="winrate-comparison-chart"></div>
             </div>
         </div>
-
-        <!-- Comparison Table -->
         <div class="comparison-table-container">
             <h3>📊 Métricas Detalladas</h3>
             <table class="comparison-table">
@@ -257,9 +231,94 @@
         </div>
     </div>
 
+    <!-- VISTA OPTIMIZER -->
+    <div id="optimizer-view" class="view">
+        <!-- Configuration Form -->
+        <div class="optimizer-config">
+            <h2>⚙️ Configuración de Optimización</h2>
+
+            <div class="form-group">
+                <label>Estrategia:</label>
+                <select id="opt-strategy" class="form-select">
+                    <option value="ema">EMA Crossover</option>
+                    <option value="momentum">Momentum</option>
+                </select>
+            </div>
+
+            <div class="form-group">
+                <label>Símbolos a Optimizar:</label>
+                <div class="checkbox-group">
+                    <label><input type="checkbox" class="symbol-checkbox" value="ETH/USDT" checked> ETH/USDT</label>
+                    <label><input type="checkbox" class="symbol-checkbox" value="XRP/USDT" checked> XRP/USDT</label>
+                    <label><input type="checkbox" class="symbol-checkbox" value="BNB/USDT" checked> BNB/USDT</label>
+                    <label><input type="checkbox" class="symbol-checkbox" value="SOL/USDT" checked> SOL/USDT</label>
+                </div>
+            </div>
+
+            <button id="run-optimizer-btn" class="btn-primary">
+                🚀 Iniciar Optimización
+            </button>
+        </div>
+
+        <!-- Progress Bar -->
+        <div id="optimizer-progress" class="progress-container" style="display:none;">
+            <h3>⏳ Optimización en progreso...</h3>
+            <div class="progress-bar">
+                <div id="progress-fill" class="progress-fill"></div>
+            </div>
+            <p id="progress-text">Ejecutando optimización. Esto puede tardar 2-5 minutos...</p>
+        </div>
+
+        <!-- Results -->
+        <div id="optimizer-results" class="results-container" style="display:none;">
+            <h2>📊 Resultados de Optimización</h2>
+            <p id="results-info" class="results-info"></p>
+
+            <div class="results-table">
+                <h3>🏆 Top 10 Configuraciones (por Score)</h3>
+                <div class="table-wrapper">
+                    <table id="results-table-score">
+                        <thead>
+                            <tr>
+                                <th>#</th>
+                                <th>Parámetros</th>
+                                <th>ROI %</th>
+                                <th>Win Rate %</th>
+                                <th>Drawdown %</th>
+                                <th>Sharpe</th>
+                                <th>Score</th>
+                            </tr>
+                        </thead>
+                        <tbody></tbody>
+                    </table>
+                </div>
+            </div>
+
+            <div class="results-table">
+                <h3>💰 Top 10 Configuraciones (por ROI)</h3>
+                <div class="table-wrapper">
+                    <table id="results-table-roi">
+                        <thead>
+                            <tr>
+                                <th>#</th>
+                                <th>Parámetros</th>
+                                <th>ROI %</th>
+                                <th>Win Rate %</th>
+                                <th>Drawdown %</th>
+                                <th>Sharpe</th>
+                                <th>Score</th>
+                            </tr>
+                        </thead>
+                        <tbody></tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <!-- Footer -->
     <div class="footer">
-        <p>🤖 Trading Bot Dashboard v2.0.6 | Actualización automática cada 30s</p>
+        <p>🤖 Trading Bot Dashboard v2.1.0 | Actualización automática cada 30s</p>
         <p>Última actualización: <span id="last-update">--:--:--</span></p>
     </div>
 

@@ -491,6 +491,144 @@ def api_comparison():
         return jsonify({'error': str(e)}), 500
 
 
+# ============================================================================
+# OPTIMIZER ENDPOINTS
+# ============================================================================
+
+def save_optimizer_results(results, strategy):
+    """Guarda resultados de optimización en JSON"""
+    try:
+        filename = f'optimizer_results_{strategy}.json'
+        results_dict = results.to_dict('records') if hasattr(results, 'to_dict') else results
+        
+        with open(filename, 'w') as f:
+            json.dump({
+                'strategy': strategy,
+                'timestamp': datetime.now().isoformat(),
+                'results': results_dict
+            }, f, indent=2)
+        
+        return True
+    except Exception as e:
+        print(f"Error saving optimizer results: {e}")
+        return False
+
+
+def load_optimizer_results(strategy):
+    """Carga últimos resultados de optimización"""
+    try:
+        filename = f'optimizer_results_{strategy}.json'
+        if os.path.exists(filename):
+            with open(filename, 'r') as f:
+                return json.load(f)
+        return None
+    except Exception as e:
+        print(f"Error loading optimizer results: {e}")
+        return None
+
+
+def run_optimizer(strategy, symbols):
+    """
+    Ejecuta optimización de estrategia
+    
+    Args:
+        strategy: 'ema' o 'momentum'
+        symbols: lista de símbolos a optimizar
+    
+    Returns:
+        DataFrame con resultados ordenados por score
+    """
+    from strategy_optimizer import StrategyOptimizer
+    
+    optimizer = StrategyOptimizer()
+    
+    if strategy == 'ema':
+        results_df = optimizer.optimize_ema_strategy(symbols)
+    elif strategy == 'momentum':
+        results_df = optimizer.optimize_momentum_strategy(symbols)
+    else:
+        raise ValueError(f"Unknown strategy: {strategy}")
+    
+    return results_df
+
+
+@app.route('/api/optimizer/run', methods=['POST'])
+def api_optimizer_run():
+    """Ejecuta optimización de estrategia"""
+    try:
+        from flask import request
+        
+        data = request.get_json()
+        strategy = data.get('strategy', 'ema')
+        symbols = data.get('symbols', ['ETH/USDT', 'XRP/USDT', 'BNB/USDT', 'SOL/USDT'])
+        
+        # Validar estrategia
+        if strategy not in ['ema', 'momentum']:
+            return jsonify({'error': 'Invalid strategy. Use "ema" or "momentum"'}), 400
+        
+        # Ejecutar optimización (esto puede tardar 2-5 minutos)
+        results_df = run_optimizer(strategy, symbols)
+        
+        # Guardar resultados
+        save_optimizer_results(results_df, strategy)
+        
+        # Convertir a dict para JSON
+        results_dict = results_df.to_dict('records')
+        
+        # Top 10 por score
+        top_score = results_dict[:10]
+        
+        # Top 10 por ROI
+        results_roi = sorted(results_dict, key=lambda x: x.get('avg_roi', 0), reverse=True)
+        top_roi = results_roi[:10]
+        
+        return jsonify({
+            'success': True,
+            'strategy': strategy,
+            'symbols': symbols,
+            'timestamp': datetime.now().isoformat(),
+            'total_configs': len(results_dict),
+            'top_score': top_score,
+            'top_roi': top_roi
+        })
+        
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/api/optimizer/last-results')
+def api_optimizer_last_results():
+    """Obtiene últimos resultados de optimización"""
+    try:
+        from flask import request
+        
+        strategy = request.args.get('strategy', 'ema')
+        
+        results = load_optimizer_results(strategy)
+        
+        if results is None:
+            return jsonify({'error': 'No results found'}), 404
+        
+        # Extraer top 10 por score y ROI
+        all_results = results.get('results', [])
+        
+        top_score = all_results[:10]
+        results_roi = sorted(all_results, key=lambda x: x.get('avg_roi', 0), reverse=True)
+        top_roi = results_roi[:10]
+        
+        return jsonify({
+            'success': True,
+            'strategy': strategy,
+            'timestamp': results.get('timestamp'),
+            'total_configs': len(all_results),
+            'top_score': top_score,
+            'top_roi': top_roi
+        })
+        
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
 @app.route('/api/health')
 def api_health():
     """Health check endpoint"""

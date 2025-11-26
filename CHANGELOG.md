@@ -1,3 +1,33 @@
+# Changelog
+
+## v2.1.0 - Optimizer Integration (2025-11-25)
+
+**Nueva Funcionalidad: Optimizer Dashboard**
+- Nueva pestaña "🔧 Optimizer" en el dashboard
+- Interfaz web para ejecutar optimizaciones de estrategias EMA y Momentum
+- Formulario de configuración con selector de estrategia y símbolos
+- Barra de progreso visual durante la optimización
+- Tablas de resultados: Top 10 por Score y Top 10 por ROI
+- Persistencia de resultados en archivos JSON
+- Carga automática de últimos resultados al cambiar de vista
+
+**Backend API**
+- Nuevo endpoint `POST /api/optimizer/run` - Ejecuta optimización de estrategia
+- Nuevo endpoint `GET /api/optimizer/last-results` - Obtiene últimos resultados guardados
+- Funciones helper: `run_optimizer()`, `save_optimizer_results()`, `load_optimizer_results()`
+- Integración con `strategy_optimizer.py` existente
+
+**Frontend**
+- Formulario de configuración con select de estrategia y checkboxes de símbolos
+- Barra de progreso animada con feedback visual
+- Renderizado dinámico de tablas de resultados con formato de parámetros
+- Código de colores para ROI (verde/rojo) y métricas
+- CSS completo para optimizer view (~200 líneas)
+- JavaScript con funciones async para API calls (~190 líneas)
+
+## v2.0.6 - Dashboard Layout Refinement (2025-11-25)
+
+**Mejoras de Layout**
 - Vista combinada con métricas totales y distribución de capital
 - Vistas individuales para cada bot con gráficos y trades
 - Vista de comparación con gráficos de ROI y Win Rate

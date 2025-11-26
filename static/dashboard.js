@@ -557,3 +557,193 @@ function updateLastUpdateTime() {
     document.getElementById('last-update').textContent =
         now.toLocaleTimeString('es-ES');
 }
+
+// ============================================================================
+// OPTIMIZER FUNCTIONS
+// ============================================================================
+
+function setupOptimizerView() {
+    const runBtn = document.getElementById('run-optimizer-btn');
+    if (runBtn) {
+        runBtn.addEventListener('click', runOptimization);
+    }
+}
+
+function getSelectedSymbols() {
+    const checkboxes = document.querySelectorAll('.symbol-checkbox:checked');
+    return Array.from(checkboxes).map(cb => cb.value);
+}
+
+async function runOptimization() {
+    const strategy = document.getElementById('opt-strategy').value;
+    const symbols = getSelectedSymbols();
+
+    if (symbols.length === 0) {
+        alert('Por favor selecciona al menos un símbolo');
+        return;
+    }
+
+    // Disable button and show progress
+    const runBtn = document.getElementById('run-optimizer-btn');
+    runBtn.disabled = true;
+    runBtn.textContent = '⏳ Ejecutando...';
+
+    document.getElementById('optimizer-config').style.display = 'none';
+    document.getElementById('optimizer-results').style.display = 'none';
+    document.getElementById('optimizer-progress').style.display = 'block';
+
+    // Simulate progress (since we can't get real progress from sync call)
+    const progressFill = document.getElementById('progress-fill');
+    let progress = 0;
+    const progressInterval = setInterval(() => {
+        progress += 2;
+        if (progress <= 90) {
+            progressFill.style.width = progress + '%';
+        }
+    }, 1000);
+
+    try {
+        const response = await fetch('/api/optimizer/run', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                strategy: strategy,
+                symbols: symbols
+            })
+        });
+
+        clearInterval(progressInterval);
+        progressFill.style.width = '100%';
+
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
+
+        const data = await response.json();
+
+        // Hide progress, show results
+        setTimeout(() => {
+            document.getElementById('optimizer-progress').style.display = 'none';
+            displayResults(data);
+        }, 500);
+
+    } catch (error) {
+        clearInterval(progressInterval);
+        console.error('Error running optimization:', error);
+        alert('Error ejecutando optimización: ' + error.message);
+
+        // Reset UI
+        document.getElementById('optimizer-progress').style.display = 'none';
+        document.getElementById('optimizer-config').style.display = 'block';
+    } finally {
+        runBtn.disabled = false;
+        runBtn.textContent = '🚀 Iniciar Optimización';
+    }
+}
+
+function displayResults(data) {
+    const resultsContainer = document.getElementById('optimizer-results');
+    const resultsInfo = document.getElementById('results-info');
+
+    // Update info
+    const timestamp = new Date(data.timestamp).toLocaleString('es-ES');
+    resultsInfo.textContent = `Optimización ${data.strategy.toUpperCase()} completada el ${timestamp}. Total de configuraciones probadas: ${data.total_configs}`;
+
+    // Render tables
+    renderResultsTable('results-table-score', data.top_score, data.strategy);
+    renderResultsTable('results-table-roi', data.top_roi, data.strategy);
+
+    // Show results
+    resultsContainer.style.display = 'block';
+    document.getElementById('optimizer-config').style.display = 'block';
+}
+
+function renderResultsTable(tableId, results, strategy) {
+    const table = document.getElementById(tableId);
+    const tbody = table.querySelector('tbody');
+    tbody.innerHTML = '';
+
+    results.forEach((result, index) => {
+        const row = document.createElement('tr');
+
+        // Rank
+        const rankCell = document.createElement('td');
+        rankCell.textContent = index + 1;
+        row.appendChild(rankCell);
+
+        // Parameters
+        const paramCell = document.createElement('td');
+        paramCell.className = 'param-cell';
+        if (strategy === 'ema') {
+            paramCell.textContent = `EMA(${result.fast},${result.slow})`;
+            if (result.use_filter) paramCell.textContent += ' +Filter';
+            if (result.rsi_filter) paramCell.textContent += ' +RSI';
+            if (result.atr_sl) paramCell.textContent += ` +ATR(${result.atr_mult})`;
+        } else {
+            paramCell.textContent = `ROC(${result.period},${result.ma_period})`;
+            if (result.min_roc > 0) paramCell.textContent += ` minROC:${result.min_roc}`;
+            if (result.use_trend_filter) paramCell.textContent += ' +Trend';
+            if (result.rsi_filter) paramCell.textContent += ' +RSI';
+            if (result.atr_sl) paramCell.textContent += ` +ATR(${result.atr_mult})`;
+        }
+        row.appendChild(paramCell);
+
+        // ROI
+        const roiCell = document.createElement('td');
+        roiCell.textContent = result.avg_roi.toFixed(2) + '%';
+        roiCell.className = result.avg_roi > 0 ? 'positive' : 'negative';
+        row.appendChild(roiCell);
+
+        // Win Rate
+        const wrCell = document.createElement('td');
+        wrCell.textContent = result.avg_win_rate.toFixed(1) + '%';
+        row.appendChild(wrCell);
+
+        // Drawdown
+        const ddCell = document.createElement('td');
+        ddCell.textContent = result.avg_drawdown.toFixed(2) + '%';
+        ddCell.className = 'negative';
+        row.appendChild(ddCell);
+
+        // Sharpe
+        const sharpeCell = document.createElement('td');
+        sharpeCell.textContent = result.avg_sharpe.toFixed(2);
+        row.appendChild(sharpeCell);
+
+        // Score
+        const scoreCell = document.createElement('td');
+        scoreCell.textContent = result.score.toFixed(2);
+        scoreCell.className = 'positive';
+        row.appendChild(scoreCell);
+
+        tbody.appendChild(row);
+    });
+}
+
+async function loadLastOptimizerResults() {
+    const strategy = document.getElementById('opt-strategy').value;
+
+    try {
+        const response = await fetch(`/api/optimizer/last-results?strategy=${strategy}`);
+
+        if (response.ok) {
+            const data = await response.json();
+            displayResults(data);
+        }
+    } catch (error) {
+        console.log('No previous results found');
+    }
+}
+
+// Initialize optimizer when view is switched
+const originalSwitchView = switchView;
+switchView = function (viewName) {
+    originalSwitchView(viewName);
+
+    if (viewName === 'optimizer') {
+        setupOptimizerView();
+        loadLastOptimizerResults();
+    }
+};
