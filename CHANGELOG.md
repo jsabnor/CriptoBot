@@ -1,5 +1,15 @@
 # Changelog
 
+## v2.1.2 - Trades Compatibility Fix (2025-11-26)
+
+**Corrección: Compatibilidad de Formatos de Trades**
+- **Problema**: Bot ADX usa columna `type` y Bot EMA usa columna `side` en sus archivos CSV
+- **Solución**: `calculate_trade_metrics()` ahora detecta automáticamente qué columna usar
+- **Archivos modificados**:
+  - `dashboard.py`: Añadida lógica para detectar columna `type` o `side`
+  - Añadido endpoint `/api/bot/<name>/trades` para trades individuales
+- **Impacto**: Elimina error 500 en `/api/comparison` cuando hay trades de EMA
+
 ## v2.1.1 - Equity Calculation Fix (2025-11-26)
 
 **Corrección Crítica: Cálculo de Equity**

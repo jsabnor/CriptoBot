@@ -270,6 +270,27 @@ def api_trades():
         return jsonify({'error': str(e)}), 500
 
 
+@app.route('/api/bot/<bot_name>/trades')
+def api_bot_trades(bot_name):
+    """Historial de trades de un bot específico"""
+    try:
+        trades_df = load_bot_trades(bot_name)
+        
+        if trades_df.empty:
+            return jsonify([])
+        
+        # Últimos 20 trades
+        df_recent = trades_df.tail(20).copy()
+        
+        # Formatear para JSON
+        trades_list = df_recent.to_dict('records')
+        
+        return jsonify(trades_list)
+    except Exception as e:
+        print(f"Error loading trades for {bot_name}: {e}")
+        return jsonify({'error': str(e)}), 500
+
+
 @app.route('/api/chart/<symbol>')
 def api_chart(symbol):
     """Datos para gráfico de velas con indicadores y marcadores de trades"""
@@ -475,10 +496,40 @@ def api_comparison():
                     'avg_pnl': 0
                 }
             
-            sells = df[df['type'] == 'sell']
+            # Determinar qué columna usar para el tipo de trade
+            # Bot ADX usa 'type', Bot EMA usa 'side'
+            type_column = None
+            if 'type' in df.columns:
+                type_column = 'type'
+            elif 'side' in df.columns:
+                type_column = 'side'
+            else:
+                print(f"Warning: Neither 'type' nor 'side' column found in trades DataFrame. Columns: {df.columns.tolist()}")
+                return {
+                    'total_trades': 0,
+                    'wins': 0,
+                    'losses': 0,
+                    'win_rate': 0,
+                    'total_pnl': 0,
+                    'avg_pnl': 0
+                }
+            
+            sells = df[df[type_column] == 'sell']
             if sells.empty:
                 return {
                     'total_trades': 0,
+                    'wins': 0,
+                    'losses': 0,
+                    'win_rate': 0,
+                    'total_pnl': 0,
+                    'avg_pnl': 0
+                }
+            
+            # Verificar que exista la columna 'pnl'
+            if 'pnl' not in sells.columns:
+                print(f"Warning: 'pnl' column not found in sells DataFrame. Columns: {sells.columns.tolist()}")
+                return {
+                    'total_trades': len(sells),
                     'wins': 0,
                     'losses': 0,
                     'win_rate': 0,
