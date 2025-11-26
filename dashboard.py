@@ -425,12 +425,12 @@ def api_bot_status(bot_name):
             return jsonify({'error': f'No state file found for bot {bot_name}'}), 404
         
         # Calcular métricas según el bot
+        # Calcular métricas según el bot
         if bot_name == 'adx':
-            total_equity = state.get('total_equity', 0)
+            total_equity = get_real_equity(state, 'adx')
             positions = state.get('positions', {})
         else:  # ema
-            equity_dict = state.get('equity', {})
-            total_equity = sum(equity_dict.values()) if isinstance(equity_dict, dict) else 0
+            total_equity = get_real_equity(state, 'ema')
             positions = state.get('positions', {})
         
         open_positions = sum(1 for pos in positions.values() if pos)
