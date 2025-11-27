@@ -102,13 +102,13 @@ class TelegramBotHandler:
                 ]
             ]
         }
-    
     def get_bot_state(self, bot_name='adx'):
         """Lee el estado de un bot desde su archivo JSON"""
         try:
             file_map = {
                 'adx': 'bot_state.json',
-                'ema': 'bot_state_ema.json'
+                'ema': 'bot_state_ema.json',
+                'neural': 'bot_state_neural.json'
             }
             
             filename = file_map.get(bot_name, 'bot_state.json')
@@ -127,7 +127,8 @@ class TelegramBotHandler:
         try:
             file_map = {
                 'adx': 'trades_production.csv',
-                'ema': 'trades_ema.csv'
+                'ema': 'trades_ema.csv',
+                'neural': 'trades_neural.csv'
             }
             
             filename = file_map.get(bot_name, 'trades_production.csv')
@@ -143,6 +144,9 @@ class TelegramBotHandler:
             df_recent = df[df['timestamp'] >= cutoff_date]
             
             return df_recent
+        except Exception as e:
+            print(f"❌ Error leyendo historial de {bot_name}: {e}")
+            return None
         except Exception as e:
             print(f"❌ Error leyendo historial de {bot_name}: {e}")
             return None
@@ -236,8 +240,9 @@ class TelegramBotHandler:
         # Leer estados
         adx_state = self.get_bot_state('adx')
         ema_state = self.get_bot_state('ema')
+        neural_state = self.get_bot_state('neural')
         
-        if not adx_state and not ema_state:
+        if not adx_state and not ema_state and not neural_state:
             text = "❌ No se pudo leer el estado de los bots"
             self.send_message(chat_id, text)
             return
@@ -246,6 +251,7 @@ class TelegramBotHandler:
         
         total_equity_adx = 0
         total_equity_ema = 0
+        total_equity_neural = 0
         
         # Bot ADX
         if adx_state:
@@ -296,10 +302,35 @@ class TelegramBotHandler:
             )
         else:
             text += "📉 <b>Bot EMA</b>: ❌ Estado no disponible\n\n"
+            
+        # Bot Neural
+        if neural_state:
+            equity_total, equity_cash, positions_value = self.calculate_total_equity(neural_state)
+            total_equity_neural = equity_total
+            positions_neural = sum(1 for p in neural_state.get('positions', {}).values() if p)
+            
+            text += (
+                "🧠 <b>Bot Neural (CNN-LSTM)</b>\n"
+                f"💰 Equity Total: <b>${equity_total:.2f}</b>\n"
+            )
+            
+            # Mostrar desglose si hay posiciones
+            if positions_value > 0:
+                text += (
+                    f"  └ Efectivo: ${equity_cash:.2f}\n"
+                    f"  └ Posiciones: ${positions_value:.2f}\n"
+                )
+            
+            text += (
+                f"📍 Posiciones: <b>{positions_neural}/4</b>\n"
+                f"📅 Última actualización: {neural_state.get('last_summary_date', 'N/A')}\n\n"
+            )
+        else:
+            text += "🧠 <b>Bot Neural</b>: ❌ Estado no disponible\n\n"
         
         # Total combinado
-        if adx_state or ema_state:
-            total_combined = total_equity_adx + total_equity_ema
+        if adx_state or ema_state or neural_state:
+            total_combined = total_equity_adx + total_equity_ema + total_equity_neural
             text += (
                 "━━━━━━━━━━━━━━━━━━━━\n"
                 f"💼 <b>EQUITY TOTAL: ${total_combined:.2f}</b>"
@@ -311,6 +342,7 @@ class TelegramBotHandler:
         """Comando /posiciones - Posiciones abiertas"""
         adx_state = self.get_bot_state('adx')
         ema_state = self.get_bot_state('ema')
+        neural_state = self.get_bot_state('neural')
         
         text = "💼 <b>POSICIONES ABIERTAS</b>\n\n"
         has_positions = False
@@ -433,6 +465,67 @@ class TelegramBotHandler:
                             pass
             
             if not positions:
+                text += "  └ Sin posiciones abiertas\n"
+                
+        # Posiciones Neural
+        if neural_state:
+            text += "\n🧠 <b>Bot Neural:</b>\n"
+            positions = neural_state.get('positions', {})
+            
+            for symbol, pos in positions.items():
+                if pos:
+                    has_positions = True
+                    entry_price = pos.get('entry_price', 0)
+                    qty = pos.get('qty', 0)
+                    sl_price = pos.get('sl_price', 0)
+                    entry_time_str = pos.get('entry_time')
+                    confidence = pos.get('confidence', 0)
+                    
+                    # Obtener precio actual
+                    current_price = self.get_current_price(symbol)
+                    
+                    text += f"\n🪙 <b>{symbol.replace('/USDT', '')}</b>\n"
+                    text += f"  ├ Entrada: ${entry_price:.4f}\n"
+                    
+                    # Mostrar precio actual y P&L si se pudo obtener
+                    if current_price:
+                        pnl = (current_price - entry_price) * qty
+                        roi = ((current_price - entry_price) / entry_price) * 100
+                        pnl_emoji = '💚' if pnl >= 0 else '💔'
+                        
+                        text += f"  ├ Actual: <b>${current_price:.4f}</b>\n"
+                        text += f"  ├ {pnl_emoji} P&L: <b>${pnl:+.2f}</b> ({roi:+.2f}%)\n"
+                    
+                    text += f"  ├ Cantidad: {qty:.6f}\n"
+                    text += f"  ├ Stop Loss: ${sl_price:.4f}\n"
+                    text += f"  ├ Confianza: {confidence:.2f}\n"
+                    
+                    # Calcular duración
+                    if entry_time_str:
+                        try:
+                            from datetime import datetime
+                            if isinstance(entry_time_str, str):
+                                entry_time = datetime.fromisoformat(entry_time_str.replace('Z', '+00:00'))
+                            else:
+                                entry_time = entry_time_str
+                            
+                            duration = datetime.now() - entry_time.replace(tzinfo=None)
+                            hours = duration.total_seconds() / 3600
+                            
+                            if hours < 1:
+                                duration_str = f"{int(duration.total_seconds() / 60)}m"
+                            elif hours < 24:
+                                duration_str = f"{int(hours)}h {int((hours % 1) * 60)}m"
+                            else:
+                                days = int(hours / 24)
+                                remaining_hours = int(hours % 24)
+                                duration_str = f"{days}d {remaining_hours}h"
+                            
+                            text += f"  └ ⏱️ Duración: {duration_str}\n"
+                        except:
+                            pass
+            
+            if not any(positions.values()):
                 text += "  └ Sin posiciones abiertas\n"
         
         if not has_positions:

@@ -130,6 +130,7 @@ fi
 # ============================================================================
 BOT_ADX_RUNNING=false
 BOT_EMA_RUNNING=false
+BOT_NEURAL_RUNNING=false
 BOT_TELEGRAM_RUNNING=false
 
 if systemctl is-active --quiet bot.service 2>/dev/null; then
@@ -142,12 +143,17 @@ if systemctl is-active --quiet bot_ema.service 2>/dev/null; then
     print_warning "El bot EMA está corriendo como servicio"
 fi
 
+if systemctl is-active --quiet bot_neural.service 2>/dev/null; then
+    BOT_NEURAL_RUNNING=true
+    print_warning "El bot Neural está corriendo como servicio"
+fi
+
 if systemctl is-active --quiet telegram_bot.service 2>/dev/null; then
     BOT_TELEGRAM_RUNNING=true
     print_warning "El bot de Telegram está corriendo como servicio"
 fi
 
-if [ "$BOT_ADX_RUNNING" = true ] || [ "$BOT_EMA_RUNNING" = true ] || [ "$BOT_TELEGRAM_RUNNING" = true ]; then
+if [ "$BOT_ADX_RUNNING" = true ] || [ "$BOT_EMA_RUNNING" = true ] || [ "$BOT_NEURAL_RUNNING" = true ] || [ "$BOT_TELEGRAM_RUNNING" = true ]; then
     echo "Los bots se detendrán temporalmente para aplicar la actualización"
 fi
 
@@ -189,6 +195,12 @@ if [ "$BOT_EMA_RUNNING" = true ]; then
     print_success "Bot EMA detenido"
 fi
 
+if [ "$BOT_NEURAL_RUNNING" = true ]; then
+    print_info "Deteniendo el bot Neural..."
+    sudo systemctl stop bot_neural.service
+    print_success "Bot Neural detenido"
+fi
+
 if [ "$BOT_TELEGRAM_RUNNING" = true ]; then
     print_info "Deteniendo el bot de Telegram..."
     sudo systemctl stop telegram_bot.service
@@ -209,6 +221,9 @@ if [ -f "bot_state.json" ]; then
 fi
 if [ -f "bot_state_ema.json" ]; then
     cp bot_state_ema.json bot_state_ema.json.tmp
+fi
+if [ -f "bot_state_neural.json" ]; then
+    cp bot_state_neural.json bot_state_neural.json.tmp
 fi
 
 # ============================================================================
@@ -289,6 +304,12 @@ if [ -f "bot_state_ema.json.tmp" ]; then
     print_success "Archivo bot_state_ema.json restaurado"
 fi
 
+if [ -f "bot_state_neural.json.tmp" ]; then
+    mv bot_state_neural.json.tmp bot_state_neural.json
+    chown $ACTUAL_USER:$ACTUAL_USER bot_state_neural.json
+    print_success "Archivo bot_state_neural.json restaurado"
+fi
+
 # ============================================================================
 # 11. ACTUALIZAR DEPENDENCIAS SI ES NECESARIO
 # ============================================================================
@@ -323,6 +344,12 @@ if [ -f "bot_ema.service" ]; then
     print_info "Actualizando bot_ema.service..."
     sudo cp bot_ema.service /etc/systemd/system/bot_ema.service
     print_success "bot_ema.service actualizado"
+fi
+
+if [ -f "bot_neural.service" ]; then
+    print_info "Actualizando bot_neural.service..."
+    sudo cp bot_neural.service /etc/systemd/system/bot_neural.service
+    print_success "bot_neural.service actualizado"
 fi
 
 if [ -f "telegram_bot.service" ]; then
@@ -363,7 +390,7 @@ print_success "Permisos corregidos"
 # ============================================================================
 # 12. REINICIAR LOS BOTS
 # ============================================================================
-if [ "$BOT_ADX_RUNNING" = true ] || [ "$BOT_EMA_RUNNING" = true ] || [ "$BOT_TELEGRAM_RUNNING" = true ]; then
+if [ "$BOT_ADX_RUNNING" = true ] || [ "$BOT_EMA_RUNNING" = true ] || [ "$BOT_NEURAL_RUNNING" = true ] || [ "$BOT_TELEGRAM_RUNNING" = true ]; then
     print_header "REINICIANDO BOTS"
     
     if [ "$BOT_ADX_RUNNING" = true ]; then
@@ -389,6 +416,19 @@ if [ "$BOT_ADX_RUNNING" = true ] || [ "$BOT_EMA_RUNNING" = true ] || [ "$BOT_TEL
         else
             print_error "El bot EMA no pudo iniciar correctamente"
             echo "Verifica: sudo systemctl status bot_ema"
+        fi
+    fi
+    
+    if [ "$BOT_NEURAL_RUNNING" = true ]; then
+        print_info "Iniciando el bot Neural..."
+        sudo systemctl start bot_neural.service
+        sleep 2
+        
+        if systemctl is-active --quiet bot_neural.service; then
+            print_success "Bot Neural reiniciado exitosamente"
+        else
+            print_error "El bot Neural no pudo iniciar correctamente"
+            echo "Verifica: sudo systemctl status bot_neural"
         fi
     fi
     
@@ -419,7 +459,7 @@ echo -e "  Versión anterior: v$LOCAL_VERSION"
 echo -e "  Versión actual:   v$NEW_VERSION"
 echo -e "  Backup guardado:  $BACKUP_DIR"
 
-if [ "$BOT_ADX_RUNNING" = true ] || [ "$BOT_EMA_RUNNING" = true ] || [ "$BOT_TELEGRAM_RUNNING" = true ]; then
+if [ "$BOT_ADX_RUNNING" = true ] || [ "$BOT_EMA_RUNNING" = true ] || [ "$BOT_NEURAL_RUNNING" = true ] || [ "$BOT_TELEGRAM_RUNNING" = true ]; then
     echo -e "\n${BLUE}Estado de los bots:${NC}"
     
     if [ "$BOT_ADX_RUNNING" = true ]; then
@@ -432,6 +472,11 @@ if [ "$BOT_ADX_RUNNING" = true ] || [ "$BOT_EMA_RUNNING" = true ] || [ "$BOT_TEL
         sudo systemctl status bot_ema --no-pager -l | head -10
     fi
     
+    if [ "$BOT_NEURAL_RUNNING" = true ]; then
+        echo -e "\n${GREEN}Bot Neural:${NC}"
+        sudo systemctl status bot_neural --no-pager -l | head -10
+    fi
+    
     if [ "$BOT_TELEGRAM_RUNNING" = true ]; then
         echo -e "\n${GREEN}Bot Telegram:${NC}"
         sudo systemctl status telegram_bot --no-pager -l | head -10
@@ -439,11 +484,13 @@ if [ "$BOT_ADX_RUNNING" = true ] || [ "$BOT_EMA_RUNNING" = true ] || [ "$BOT_TEL
 fi
 
 echo -e "\n${BLUE}Comandos útiles:${NC}"
-echo "  sudo systemctl status bot bot_ema telegram_bot  - Ver estado de los bots"
+echo "  sudo systemctl status bot bot_ema bot_neural telegram_bot  - Ver estado de los bots"
 echo "  sudo journalctl -u bot -f                       - Ver logs bot ADX"
 echo "  sudo journalctl -u bot_ema -f                   - Ver logs bot EMA"
+echo "  sudo journalctl -u bot_neural -f                - Ver logs bot Neural"
 echo "  sudo journalctl -u telegram_bot -f              - Ver logs bot Telegram"
 echo "  cat bot_state.json                              - Ver estado bot ADX"
 echo "  cat bot_state_ema.json                          - Ver estado bot EMA"
+echo "  cat bot_state_neural.json                       - Ver estado bot Neural"
 
 echo -e "\n${GREEN}¡Actualización exitosa!${NC}\n"

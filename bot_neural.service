@@ -1,0 +1,14 @@
+[Unit]
+Description=Trading Bot Neural Strategy
+After=network.target
+
+[Service]
+User=j0s3m4
+WorkingDirectory=/home/j0s3m4/CriptoBot
+ExecStart=/home/j0s3m4/CriptoBot/.venv/bin/python /home/j0s3m4/CriptoBot/bot_neural.py
+Restart=always
+RestartSec=10
+Environment=PYTHONUNBUFFERED=1
+
+[Install]
+WantedBy=multi-user.target

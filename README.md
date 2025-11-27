@@ -1,10 +1,3 @@
-# 🤖 Bot de Trading
-
-## 🚀 Inicio Rápido
-
-```bash
-# Ejecutar bot en paper trading
-python bot_production.py
 ```
 
 ## 📁 Estructura del Proyecto
@@ -71,33 +64,6 @@ Los siguientes documentos están disponibles en artifacts:
 
 ## 🧠 Estrategia Neuronal (NUEVO)
 
-Sistema de trading basado en **redes neuronales CNN-LSTM** con aprendizaje continuo.
-
-### 📊 Resultados Validados (ETH/USDT 2024-2025)
-
-| Métrica | Valor |
-|---------|-------|
-| **ROI** | **+32.06%** 🚀 |
-| **Win Rate** | 47.79% |
-| **Trades** | 113 |
-| **Sharpe Ratio** | 0.55 |
-| **Max Drawdown** | 49.54% |
-
-### ✨ Características
-
-- 🧠 **CNN-LSTM híbrida** optimizada para CPU
-- 📈 **Trailing Stop** (3%) para proteger ganancias
-- ⚖️ **Class Weights** automáticos para balancear clases
-- 🎯 **Filtro de confianza** (35%) para calidad de señales
-- 🔄 **Aprendizaje continuo** (reentrenamiento periódico)
-
-### 🚀 Inicio Rápido
-
-```bash
-# 1. Instalar dependencias
-pip install tensorflow-cpu scikit-learn joblib
-
-# 2. Entrenar modelo inicial
 python neural_strategy.py --mode train --symbols ETH/USDT SOL/USDT BNB/USDT
 
 # 3. Validar con backtest

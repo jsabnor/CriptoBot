@@ -119,22 +119,6 @@ Después (CORRECTO):
 
 ### Mejorado
 - Mensajes de Telegram más informativos y profesionales
-- Mejor experiencia de usuario con acceso rápido a herramientas
-- Sistema de notificaciones más completo y motivacional
-
-### Configuración
-- Nueva variable `DASHBOARD_URL` en `.env` para botones de Telegram
-
-## [1.7.0] - 2025-11-24
-
-### Añadido
-- **Dashboard: Vela actual en tiempo real**
-  - El dashboard ahora muestra la vela actual (en progreso) con estilo semi-transparente y borde punteado
-  - La vela actual se actualiza automáticamente cada 30 segundos
-  - Diferenciación visual clara entre velas cerradas y vela en progreso
-  - Etiqueta "Actual (en progreso)" en la leyenda del gráfico
-
-### Cambiado
 - **Intervalo de actualización de caché: 4 horas → 5 minutos**
   - El caché de datos históricos ahora se actualiza cada 5 minutos en lugar de cada 4 horas
   - Proporciona datos casi en tiempo real para el dashboard
@@ -166,24 +150,6 @@ Después (CORRECTO):
 
 ### Añadido
 - Dashboard web con Flask
-- Visualización de gráficos con Plotly
-- Indicadores ADX en tiempo real
-- Tabla de trades recientes
-
-### Mejorado
-- Sistema de notificaciones por Telegram
-- Gestión de posiciones y equity
-
-## [1.0.0] - 2025-11-20
-
-### Añadido
-- Bot de trading v1.0 production
-- Estrategia basada en ADX, ATR y Moving Averages
-- Soporte para timeframe 4h
-- Gestión de riesgo con stop loss y take profit
-- Modo paper trading y live trading
-- Sistema de logging de trades
-
 ---
 
 ## Tipos de Cambios
