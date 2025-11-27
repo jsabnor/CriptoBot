@@ -54,13 +54,13 @@ class TelegramNotifier:
             print(f"⚠️ Error enviando mensaje a Telegram: {e}")
             return False
     
-    def notify_startup(self, mode, symbols, capital):
+    def notify_startup(self, mode, symbols, capital, strategy_name='ADX'):
         """Notificación de inicio del bot."""
         msg = (
-            f"🚀 [ADX] BOT INICIADO\n\n"
-            f"📊 Estrategia: ADX + ATR\n"
+            f"🚀 [{strategy_name}] BOT INICIADO\n\n"
+            f"📊 Estrategia: {strategy_name}\n"
             f"🎯 Modo: {mode.upper()}\n"
-            f" Capital: ${capital:.2f}\n"
+            f"💰 Capital: ${capital:.2f}\n"
             f"📈 Pares: {len(symbols)}\n"
             f"⏰ Timeframe: 4h\n"
             f"🎲 Riesgo: 4.0%/trade"
