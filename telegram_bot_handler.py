@@ -95,7 +95,8 @@ class TelegramBotHandler:
                 ],
                 [
                     {'text': '🤖 Bot ADX', 'callback_data': 'adx_info'},
-                    {'text': '📉 Bot EMA', 'callback_data': 'ema_info'}
+                    {'text': '📉 Bot EMA', 'callback_data': 'ema_info'},
+                    {'text': '🧠 Bot Neural', 'callback_data': 'neural_info'}
                 ],
                 [
                     {'text': '❓ Ayuda', 'callback_data': 'help'}
@@ -641,6 +642,7 @@ class TelegramBotHandler:
             'help': self.cmd_help,
             'adx_info': lambda cid: self.cmd_history(cid, 'adx 7'),
             'ema_info': lambda cid: self.cmd_history(cid, 'ema 7'),
+            'neural_info': lambda cid: self.cmd_history(cid, 'neural 7'),
         }
         
         handler = callback_map.get(data)
