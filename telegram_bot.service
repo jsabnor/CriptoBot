@@ -1,0 +1,15 @@
+[Unit]
+Description=Interactive Telegram Bot Handler
+After=network.target
+
+[Service]
+Type=simple
+User=j0s3m4
+WorkingDirectory=/home/j0s3m4/CriptoBot
+Environment="PATH=/home/j0s3m4/CriptoBot/.venv/bin"
+ExecStart=/home/j0s3m4/CriptoBot/.venv/bin/python /home/j0s3m4/CriptoBot/telegram_bot_handler.py
+Restart=on-failure
+RestartSec=10
+
+[Install]
+WantedBy=multi-user.target

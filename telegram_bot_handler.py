@@ -1,0 +1,517 @@
+#!/usr/bin/env python3
+"""
+Bot de Telegram Interactivo para Consultas de Trading
+
+Permite consultar el estado de los bots ADX y EMA mediante comandos.
+
+Comandos disponibles:
+- /start - Menú principal
+- /help - Lista de comandos
+- /status - Estado de ambos bots
+- /posiciones - Posiciones abiertas
+- /resumen - Resumen diario
+- /historial [bot] [dias] - Historial de operaciones
+
+Seguridad: Solo usuarios autorizados (TELEGRAM_AUTHORIZED_USERS)
+"""
+
+import os
+import json
+import pandas as pd
+from datetime import datetime, timedelta
+from dotenv import load_dotenv
+import requests
+import time
+
+load_dotenv()
+
+
+class TelegramBotHandler:
+    """Manejador de comandos interactivos de Telegram"""
+    
+    def __init__(self):
+        """Inicializa el bot de comandos"""
+        self.token = os.getenv('TELEGRAM_BOT_TOKEN')
+        self.authorized_users = self._load_authorized_users()
+        
+        if not self.token:
+            raise ValueError("TELEGRAM_BOT_TOKEN no configurado en .env")
+        
+        self.api_url = f"https://api.telegram.org/bot{self.token}"
+        self.last_update_id = 0
+        
+        print("🤖 Bot de Telegram Interactivo iniciado")
+        print(f"✅ Usuarios autorizados: {len(self.authorized_users)}")
+    
+    def _load_authorized_users(self):
+        """Carga lista de usuarios autorizados"""
+        users_str = os.getenv('TELEGRAM_AUTHORIZED_USERS', '')
+        
+        if not users_str:
+            # Si no hay lista, usar el CHAT_ID principal
+            main_chat = os.getenv('TELEGRAM_CHAT_ID', '')
+            return [main_chat] if main_chat else []
+        
+        # Soporta formato: "12345,67890,111213"
+        return [user.strip() for user in users_str.split(',') if user.strip()]
+    
+    def is_authorized(self, chat_id):
+        """Verifica si el usuario está autorizado"""
+        return str(chat_id) in self.authorized_users
+    
+    def send_message(self, chat_id, text, reply_markup=None):
+        """Envía un mensaje a un chat específico"""
+        try:
+            payload = {
+                'chat_id': chat_id,
+                'text': text,
+                'parse_mode': 'HTML'
+            }
+            
+            if reply_markup:
+                payload['reply_markup'] = reply_markup
+            
+            response = requests.post(
+                f"{self.api_url}/sendMessage",
+                json=payload,
+                timeout=10
+            )
+            return response.status_code == 200
+        except Exception as e:
+            print(f"❌ Error enviando mensaje: {e}")
+            return False
+    
+    def get_main_keyboard(self):
+        """Genera el teclado principal con botones"""
+        return {
+            'inline_keyboard': [
+                [
+                    {'text': '📊 Estado', 'callback_data': 'status'},
+                    {'text': '💼 Posiciones', 'callback_data': 'positions'}
+                ],
+                [
+                    {'text': '📈 Resumen Diario', 'callback_data': 'summary'},
+                    {'text': '📋 Historial', 'callback_data': 'history'}
+                ],
+                [
+                    {'text': '🤖 Bot ADX', 'callback_data': 'adx_info'},
+                    {'text': '📉 Bot EMA', 'callback_data': 'ema_info'}
+                ],
+                [
+                    {'text': '❓ Ayuda', 'callback_data': 'help'}
+                ]
+            ]
+        }
+    
+    def get_bot_state(self, bot_name='adx'):
+        """Lee el estado de un bot desde su archivo JSON"""
+        try:
+            file_map = {
+                'adx': 'bot_state.json',
+                'ema': 'bot_state_ema.json'
+            }
+            
+            filename = file_map.get(bot_name, 'bot_state.json')
+            
+            if not os.path.exists(filename):
+                return None
+            
+            with open(filename, 'r') as f:
+                return json.load(f)
+        except Exception as e:
+            print(f"❌ Error leyendo estado de {bot_name}: {e}")
+            return None
+    
+    def get_trades_history(self, bot_name='adx', days=7):
+        """Lee el historial de trades de un bot"""
+        try:
+            file_map = {
+                'adx': 'trades_production.csv',
+                'ema': 'trades_ema.csv'
+            }
+            
+            filename = file_map.get(bot_name, 'trades_production.csv')
+            
+            if not os.path.exists(filename):
+                return None
+            
+            df = pd.read_csv(filename)
+            df['timestamp'] = pd.to_datetime(df['timestamp'])
+            
+            # Filtrar últimos N días
+            cutoff_date = datetime.now() - timedelta(days=days)
+            df_recent = df[df['timestamp'] >= cutoff_date]
+            
+            return df_recent
+        except Exception as e:
+            print(f"❌ Error leyendo historial de {bot_name}: {e}")
+            return None
+    
+    def cmd_start(self, chat_id):
+        """Comando /start - Menú principal"""
+        text = (
+            "🤖 <b>Bot de Trading - Panel de Control</b>\n\n"
+            "Bienvenido al sistema de consultas del bot de trading.\n\n"
+            "Usa los botones de abajo para consultar información:\n\n"
+            "• <b>Estado</b>: Ver estado de ambos bots\n"
+            "• <b>Posiciones</b>: Posiciones abiertas actuales\n"
+            "• <b>Resumen</b>: Resumen diario de operaciones\n"
+            "• <b>Historial</b>: Últimas operaciones realizadas\n"
+            "• <b>Bot ADX/EMA</b>: Info específica de cada bot\n\n"
+            "También puedes usar comandos de texto:\n"
+            "/status, /posiciones, /resumen, /historial"
+        )
+        
+        self.send_message(chat_id, text, self.get_main_keyboard())
+    
+    def cmd_help(self, chat_id):
+        """Comando /help - Ayuda"""
+        text = (
+            "📚 <b>Comandos Disponibles</b>\n\n"
+            "<b>Comandos básicos:</b>\n"
+            "• /start - Menú principal\n"
+            "• /help - Esta ayuda\n"
+            "• /status - Estado de ambos bots\n"
+            "• /posiciones - Ver posiciones abiertas\n"
+            "• /resumen - Resumen del día\n"
+            "• /historial - Últimas 10 operaciones\n\n"
+            "<b>Comandos avanzados:</b>\n"
+            "• /historial adx 7 - Historial bot ADX (7 días)\n"
+            "• /historial ema 3 - Historial bot EMA (3 días)\n\n"
+            "<b>Bots específicos:</b>\n"
+            "• /adx - Info del bot ADX\n"
+            "• /ema - Info del bot EMA"
+        )
+        
+        self.send_message(chat_id, text, self.get_main_keyboard())
+    
+    def cmd_status(self, chat_id):
+        """Comando /status - Estado de ambos bots"""
+        # Leer estados
+        adx_state = self.get_bot_state('adx')
+        ema_state = self.get_bot_state('ema')
+        
+        if not adx_state and not ema_state:
+            text = "❌ No se pudo leer el estado de los bots"
+            self.send_message(chat_id, text)
+            return
+        
+        text = "📊 <b>ESTADO DE LOS BOTS</b>\n\n"
+        
+        # Bot ADX
+        if adx_state:
+            equity_adx = adx_state.get('equity', {})
+            total_equity_adx = sum(equity_adx.values())
+            positions_adx = sum(1 for p in adx_state.get('positions', {}).values() if p)
+            
+            text += (
+                "🤖 <b>Bot ADX (Estrategia ADX + ATR)</b>\n"
+                f"💰 Equity Total: <b>${total_equity_adx:.2f}</b>\n"
+                f"📍 Posiciones: <b>{positions_adx}/4</b>\n"
+                f"📅 Última actualización: {adx_state.get('timestamp', 'N/A')}\n\n"
+            )
+        else:
+            text += "🤖 <b>Bot ADX</b>: ❌ Estado no disponible\n\n"
+        
+        # Bot EMA
+        if ema_state:
+            equity_ema = ema_state.get('equity', {})
+            total_equity_ema = sum(equity_ema.values())
+            positions_ema = len(ema_state.get('positions', {}))
+            
+            text += (
+                "📉 <b>Bot EMA (Estrategia EMA 15/30)</b>\n"
+                f"💰 Equity Total: <b>${total_equity_ema:.2f}</b>\n"
+                f"📍 Posiciones: <b>{positions_ema}/4</b>\n"
+                f"📅 Última actualización: {ema_state.get('last_update', 'N/A')}\n\n"
+            )
+        else:
+            text += "📉 <b>Bot EMA</b>: ❌ Estado no disponible\n\n"
+        
+        # Total combinado
+        if adx_state and ema_state:
+            total_combined = total_equity_adx + total_equity_ema
+            text += (
+                "━━━━━━━━━━━━━━━━━━━━\n"
+                f"💼 <b>EQUITY TOTAL: ${total_combined:.2f}</b>"
+            )
+        
+        self.send_message(chat_id, text, self.get_main_keyboard())
+    
+    def cmd_positions(self, chat_id):
+        """Comando /posiciones - Posiciones abiertas"""
+        adx_state = self.get_bot_state('adx')
+        ema_state = self.get_bot_state('ema')
+        
+        text = "💼 <b>POSICIONES ABIERTAS</b>\n\n"
+        has_positions = False
+        
+        # Posiciones ADX
+        if adx_state:
+            text += "🤖 <b>Bot ADX:</b>\n"
+            positions = adx_state.get('positions', {})
+            
+            for symbol, pos in positions.items():
+                if pos:
+                    has_positions = True
+                    entry_price = pos.get('entry_price', 0)
+                    size = pos.get('size', 0)
+                    sl_price = pos.get('sl_price', 0)
+                    
+                    text += (
+                        f"\n🪙 <b>{symbol.replace('/USDT', '')}</b>\n"
+                        f"  └ Entrada: ${entry_price:.4f}\n"
+                        f"  └ Cantidad: {size:.6f}\n"
+                        f"  └ Stop Loss: ${sl_price:.4f}\n"
+                    )
+            
+            if not any(positions.values()):
+                text += "  └ Sin posiciones abiertas\n"
+            
+            text += "\n"
+        
+        # Posiciones EMA
+        if ema_state:
+            text += "📉 <b>Bot EMA:</b>\n"
+            positions = ema_state.get('positions', {})
+            
+            for symbol, pos in positions.items():
+                if pos:
+                    has_positions = True
+                    entry_price = pos.get('entry_price', 0)
+                    qty = pos.get('qty', 0)
+                    sl_price = pos.get('sl_price', 0)
+                    
+                    text += (
+                        f"\n🪙 <b>{symbol.replace('/USDT', '')}</b>\n"
+                        f"  └ Entrada: ${entry_price:.4f}\n"
+                        f"  └ Cantidad: {qty:.6f}\n"
+                        f"  └ Stop Loss: ${sl_price:.4f}\n"
+                    )
+            
+            if not positions:
+                text += "  └ Sin posiciones abiertas\n"
+        
+        if not has_positions:
+            text += "\n📭 No hay posiciones abiertas en este momento"
+        
+        self.send_message(chat_id, text, self.get_main_keyboard())
+    
+    def cmd_summary(self, chat_id):
+        """Comando /resumen - Resumen diario"""
+        text = "📈 <b>RESUMEN DIARIO</b>\n\n"
+        
+        # Resumen ADX
+        df_adx = self.get_trades_history('adx', days=1)
+        if df_adx is not None and not df_adx.empty:
+            sells = df_adx[df_adx['type'] == 'sell']
+            if not sells.empty:
+                pnl = sells['pnl'].sum()
+                trades = len(sells)
+                wins = len(sells[sells['pnl'] > 0])
+                
+                text += (
+                    f"🤖 <b>Bot ADX</b>\n"
+                    f"  └ Trades: {trades}\n"
+                    f"  └ Ganadas: {wins}/{trades}\n"
+                    f"  └ P&L: <b>${pnl:+.2f}</b>\n\n"
+                )
+            else:
+                text += "🤖 <b>Bot ADX</b>: Sin operaciones cerradas hoy\n\n"
+        else:
+            text += "🤖 <b>Bot ADX</b>: Sin datos\n\n"
+        
+        # Resumen EMA
+        df_ema = self.get_trades_history('ema', days=1)
+        if df_ema is not None and not df_ema.empty:
+            sells = df_ema[df_ema['side'] == 'sell']
+            if not sells.empty:
+                pnl = sells['pnl'].sum()
+                trades = len(sells)
+                wins = len(sells[sells['pnl'] > 0])
+                
+                text += (
+                    f"📉 <b>Bot EMA</b>\n"
+                    f"  └ Trades: {trades}\n"
+                    f"  └ Ganadas: {wins}/{trades}\n"
+                    f"  └ P&L: <b>${pnl:+.2f}</b>\n\n"
+                )
+            else:
+                text += "📉 <b>Bot EMA</b>: Sin operaciones cerradas hoy\n\n"
+        else:
+            text += "📉 <b>Bot EMA</b>: Sin datos\n\n"
+        
+        text += f"📅 {datetime.now().strftime('%d/%m/%Y %H:%M')}"
+        
+        self.send_message(chat_id, text, self.get_main_keyboard())
+    
+    def cmd_history(self, chat_id, args=None):
+        """Comando /historial - Últimas operaciones"""
+        # Parsear argumentos: /historial [bot] [dias]
+        bot_name = 'adx'
+        days = 7
+        
+        if args:
+            parts = args.strip().split()
+            if len(parts) >= 1 and parts[0].lower() in ['adx', 'ema']:
+                bot_name = parts[0].lower()
+            if len(parts) >= 2 and parts[1].isdigit():
+                days = int(parts[1])
+        
+        df = self.get_trades_history(bot_name, days)
+        
+        bot_emoji = '🤖' if bot_name == 'adx' else '📉'
+        text = f"📋 <b>HISTORIAL {bot_name.upper()}</b> (últimos {days} días)\n\n"
+        
+        if df is None or df.empty:
+            text += "Sin operaciones en este período"
+            self.send_message(chat_id, text, self.get_main_keyboard())
+            return
+        
+        # Mostrar últimas 10 operaciones
+        df_recent = df.tail(10).sort_values('timestamp', ascending=False)
+        
+        for _, row in df_recent.iterrows():
+            timestamp = row['timestamp'].strftime('%d/%m %H:%M')
+            symbol = row['symbol'].replace('/USDT', '')
+            side = row.get('type', row.get('side', 'N/A'))
+            price = row['price']
+            pnl = row.get('pnl', 0)
+            
+            side_emoji = '🟢' if side == 'buy' else '🔴'
+            pnl_text = f"${pnl:+.2f}" if pnl != 0 else ""
+            
+            text += (
+                f"{side_emoji} {timestamp} - <b>{symbol}</b>\n"
+                f"  └ {side.upper()} @ ${price:.4f} {pnl_text}\n\n"
+            )
+        
+        if len(df) > 10:
+            text += f"\n📊 Mostrando 10 de {len(df)} operaciones"
+        
+        self.send_message(chat_id, text, self.get_main_keyboard())
+    
+    def handle_callback_query(self, callback_query):
+        """Maneja callbacks de botones inline"""
+        chat_id = callback_query['message']['chat']['id']
+        data = callback_query['data']
+        
+        # Mapeo de callbacks a comandos
+        callback_map = {
+            'status': self.cmd_status,
+            'positions': self.cmd_positions,
+            'summary': self.cmd_summary,
+            'history': self.cmd_history,
+            'help': self.cmd_help,
+            'adx_info': lambda cid: self.cmd_history(cid, 'adx 7'),
+            'ema_info': lambda cid: self.cmd_history(cid, 'ema 7'),
+        }
+        
+        handler = callback_map.get(data)
+        if handler:
+            handler(chat_id)
+        
+        # Responder al callback para quitar el "loading"
+        try:
+            requests.post(
+                f"{self.api_url}/answerCallbackQuery",
+                json={'callback_query_id': callback_query['id']},
+                timeout=5
+            )
+        except:
+            pass
+    
+    def handle_message(self, message):
+        """Maneja mensajes entrantes"""
+        chat_id = message['chat']['id']
+        
+        # Verificar autorización
+        if not self.is_authorized(chat_id):
+            self.send_message(
+                chat_id,
+                "🚫 <b>Acceso Denegado</b>\n\n"
+                "No tienes autorización para usar este bot.\n"
+                f"Tu Chat ID: <code>{chat_id}</code>"
+            )
+            return
+        
+        text = message.get('text', '')
+        
+        # Comandos
+        if text.startswith('/'):
+            parts = text.split(maxsplit=1)
+            command = parts[0].lower()
+            args = parts[1] if len(parts) > 1 else None
+            
+            command_map = {
+                '/start': lambda: self.cmd_start(chat_id),
+                '/help': lambda: self.cmd_help(chat_id),
+                '/status': lambda: self.cmd_status(chat_id),
+                '/posiciones': lambda: self.cmd_positions(chat_id),
+                '/resumen': lambda: self.cmd_summary(chat_id),
+                '/historial': lambda: self.cmd_history(chat_id, args),
+                '/adx': lambda: self.cmd_history(chat_id, 'adx 7'),
+                '/ema': lambda: self.cmd_history(chat_id, 'ema 7'),
+            }
+            
+            handler = command_map.get(command)
+            if handler:
+                handler()
+            else:
+                self.send_message(
+                    chat_id,
+                    f"❌ Comando desconocido: {command}\n\nUsa /help para ver comandos disponibles"
+                )
+    
+    def get_updates(self):
+        """Obtiene actualizaciones pendientes"""
+        try:
+            response = requests.get(
+                f"{self.api_url}/getUpdates",
+                params={
+                    'offset': self.last_update_id + 1,
+                    'timeout': 30
+                },
+                timeout=35
+            )
+            
+            if response.status_code == 200:
+                return response.json().get('result', [])
+        except Exception as e:
+            print(f"❌ Error obteniendo updates: {e}")
+        
+        return []
+    
+    def run(self):
+        """Ejecuta el bot en modo polling"""
+        print("🚀 Bot iniciado en modo polling...")
+        print("🛑 Presiona Ctrl+C para detener\n")
+        
+        while True:
+            try:
+                updates = self.get_updates()
+                
+                for update in updates:
+                    self.last_update_id = update['update_id']
+                    
+                    # Manejar mensajes
+                    if 'message' in update:
+                        self.handle_message(update['message'])
+                    
+                    # Manejar callbacks de botones
+                    elif 'callback_query' in update:
+                        self.handle_callback_query(update['callback_query'])
+                
+                time.sleep(0.5)
+                
+            except KeyboardInterrupt:
+                print("\n\n🛑 Bot detenido por el usuario")
+                break
+            except Exception as e:
+                print(f"❌ Error en el ciclo principal: {e}")
+                time.sleep(5)
+
+
+if __name__ == '__main__':
+    bot = TelegramBotHandler()
+    bot.run()
