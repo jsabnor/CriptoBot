@@ -72,6 +72,7 @@ class TradingBot:
         self.positions = {}  # {symbol: {size, entry_price, sl_price, max_price}}
         self.equity = {}     # {symbol: current_equity}
         self.trades_log = []
+        self.last_summary_date = None  # Track last daily summary date
         
         # Inicializar equity por par
         for symbol in self.SYMBOLS:
@@ -244,6 +245,37 @@ class TradingBot:
                 success = True
             except Exception as e:
                 print(f"❌ Error comprando {symbol}: {e}")
+                if self.telegram.enabled:
+                    self.telegram.notify_error(f"Error comprando {symbol}: {str(e)}")
+                success = False
+        
+        # Notificar por Telegram
+        if success and self.telegram.enabled:
+            self.telegram.notify_buy(symbol, price, qty, cost, sl_price, tp_price, adx, ma_status, strategy_name='ADX')
+        
+        return success
+    
+    def execute_sell(self, symbol, price, qty, reason, entry_price, pnl, duration=None):
+        """Ejecuta orden de venta."""
+        if self.MODE == 'paper':
+            print(f"📉 PAPER SELL: {symbol} | Qty: {qty:.8f} | Price: ${price:.2f} | PnL: ${pnl:.2f}")
+        else:
+            try:
+                order = self.exchange.create_market_sell_order(symbol, qty)
+                print(f"✅ LIVE SELL: {symbol} | Qty: {qty:.8f} | Price: ${price:.2f}")
+            except Exception as e:
+                print(f"❌ Error vendiendo {symbol}: {e}")
+                if self.telegram.enabled:
+                    self.telegram.notify_error(f"Error vendiendo {symbol}: {str(e)}")
+                return
+        
+        # Notificar por Telegram
+        if self.telegram.enabled:
+            roi = (pnl / (entry_price * qty)) * 100
+            self.telegram.notify_sell(symbol, price, qty, reason, pnl, roi, entry_price, duration, strategy_name='ADX')
+    
+    def calculate_trade_duration(self, entry_time):
+        """Calcula la duración del trade en formato legible"""
         if not entry_time:
             return None
         
@@ -563,10 +595,14 @@ class TradingBot:
                 # Ejecutar ciclo de trading
                 self.run_once()
                 
-                # Enviar resumen diario si es cambio de día (00:00 UTC)
+                # Enviar resumen diario si cambió el día y aún no se envió hoy
                 current_time = datetime.utcnow()
-                if current_time.hour == 0 and current_time.minute < 10:
+                current_date = current_time.date()
+                
+                # Enviar solo una vez al día, en el primer ciclo después de las 00:00 UTC
+                if current_date != self.last_summary_date and current_time.hour >= 0:
                     self.send_daily_summary()
+                    self.last_summary_date = current_date
                 
             except KeyboardInterrupt:
                 print("\n\n🛑 Bot detenido por el usuario")

@@ -77,6 +77,7 @@ class EMABot:
         # Estado del bot
         self.equity = {symbol: self.capital_per_pair for symbol in self.symbols}
         self.positions = {symbol: None for symbol in self.symbols}
+        self.last_summary_date = None  # Track last daily summary date
         
         # Servicios
         self.cache = DataCache()
@@ -491,11 +492,14 @@ class EMABot:
                 # Ejecutar análisis
                 self.run_once()
                 
-                # Enviar resumen diario si es cambio de día (00:00 UTC)
-                # Como run_once tarda un poco, verificamos si acabamos de pasar las 00:00
+                # Enviar resumen diario si cambió el día y aún no se envió hoy
                 current_time = datetime.utcnow()
-                if current_time.hour == 0 and current_time.minute < 10:
+                current_date = current_time.date()
+                
+                # Enviar solo una vez al día, en el primer ciclo después de midnight UTC
+                if current_date != self.last_summary_date and current_time.hour >= 0:
                     self.send_daily_summary()
+                    self.last_summary_date = current_date
                 
             except KeyboardInterrupt:
                 print("\n⚠️ Bot detenido por el usuario")
