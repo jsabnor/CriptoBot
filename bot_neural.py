@@ -38,7 +38,8 @@ class NeuralBot:
         # Configuración
         self.MODE = mode if mode else config.TRADING_MODE
         self.TIMEFRAME = config.TIMEFRAME
-        self.SYMBOLS = config.SYMBOLS
+        # Override: Bot Neural usa solo top 3 performers (basado en backtest)
+        self.SYMBOLS = ['SOL/USDT', 'ETH/USDT', 'XRP/USDT']
         self.CAPITAL_PER_PAIR = config.CAPITAL_PER_PAIR
         self.TOTAL_CAPITAL = self.CAPITAL_PER_PAIR * len(self.SYMBOLS)
         

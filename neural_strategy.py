@@ -798,7 +798,7 @@ class NeuralStrategy:
             }
         
         # Generar señal
-        result = self.model.predict_signal(X_last)
+        result = self.predict_signal(X_last)
         result['symbol'] = symbol
         result['timestamp'] = datetime.now().isoformat()
         result['version'] = self.version
