@@ -22,7 +22,8 @@ _symbols_env = os.getenv('SYMBOLS')
 if _symbols_env:
     SYMBOLS = [s.strip() for s in _symbols_env.split(',')]
 else:
-    SYMBOLS = ['ETH/USDT', 'XRP/USDT', 'BNB/USDT', 'SOL/USDT']
+    # Top 3 performers basados en backtest (excluye BNB)
+    SYMBOLS = ['SOL/USDT', 'ETH/USDT', 'XRP/USDT']
 
 # ============================================================================
 # ESTRATEGIA (v1.6.0 OPTIMIZED)

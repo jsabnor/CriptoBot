@@ -1,9 +1,8 @@
 import os
 from dotenv import load_dotenv
 # Cargar variables de entorno ANTES de importar config
-loaded = load_dotenv()
-print(f"DEBUG: load_dotenv() returned {loaded}")
-print(f"DEBUG: BINANCE_API_KEY present: {'BINANCE_API_KEY' in os.environ}")
+load_dotenv()
+
 
 
 import time
