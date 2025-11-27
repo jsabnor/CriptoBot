@@ -326,13 +326,50 @@ class TelegramBotHandler:
                     entry_price = pos.get('entry_price', 0)
                     size = pos.get('size', 0)
                     sl_price = pos.get('sl_price', 0)
+                    entry_time_str = pos.get('entry_time')
                     
-                    text += (
-                        f"\n🪙 <b>{symbol.replace('/USDT', '')}</b>\n"
-                        f"  └ Entrada: ${entry_price:.4f}\n"
-                        f"  └ Cantidad: {size:.6f}\n"
-                        f"  └ Stop Loss: ${sl_price:.4f}\n"
-                    )
+                    # Obtener precio actual
+                    current_price = self.get_current_price(symbol)
+                    
+                    text += f"\n🪙 <b>{symbol.replace('/USDT', '')}</b>\n"
+                    text += f"  ├ Entrada: ${entry_price:.4f}\n"
+                    
+                    # Mostrar precio actual y P&L si se pudo obtener
+                    if current_price:
+                        pnl = (current_price - entry_price) * size
+                        roi = ((current_price - entry_price) / entry_price) * 100
+                        pnl_emoji = '💚' if pnl >= 0 else '💔'
+                        
+                        text += f"  ├ Actual: <b>${current_price:.4f}</b>\n"
+                        text += f"  ├ {pnl_emoji} P&L: <b>${pnl:+.2f}</b> ({roi:+.2f}%)\n"
+                    
+                    text += f"  ├ Cantidad: {size:.6f}\n"
+                    text += f"  ├ Stop Loss: ${sl_price:.4f}\n"
+                    
+                    # Calcular duración
+                    if entry_time_str:
+                        try:
+                            from datetime import datetime
+                            if isinstance(entry_time_str, str):
+                                entry_time = datetime.fromisoformat(entry_time_str.replace('Z', '+00:00'))
+                            else:
+                                entry_time = entry_time_str
+                            
+                            duration = datetime.now() - entry_time.replace(tzinfo=None)
+                            hours = duration.total_seconds() / 3600
+                            
+                            if hours < 1:
+                                duration_str = f"{int(duration.total_seconds() / 60)}m"
+                            elif hours < 24:
+                                duration_str = f"{int(hours)}h {int((hours % 1) * 60)}m"
+                            else:
+                                days = int(hours / 24)
+                                remaining_hours = int(hours % 24)
+                                duration_str = f"{days}d {remaining_hours}h"
+                            
+                            text += f"  └ ⏱️ Duración: {duration_str}\n"
+                        except:
+                            pass
             
             if not any(positions.values()):
                 text += "  └ Sin posiciones abiertas\n"
@@ -350,13 +387,50 @@ class TelegramBotHandler:
                     entry_price = pos.get('entry_price', 0)
                     qty = pos.get('qty', 0)
                     sl_price = pos.get('sl_price', 0)
+                    entry_time_str = pos.get('entry_time')
                     
-                    text += (
-                        f"\n🪙 <b>{symbol.replace('/USDT', '')}</b>\n"
-                        f"  └ Entrada: ${entry_price:.4f}\n"
-                        f"  └ Cantidad: {qty:.6f}\n"
-                        f"  └ Stop Loss: ${sl_price:.4f}\n"
-                    )
+                    # Obtener precio actual
+                    current_price = self.get_current_price(symbol)
+                    
+                    text += f"\n🪙 <b>{symbol.replace('/USDT', '')}</b>\n"
+                    text += f"  ├ Entrada: ${entry_price:.4f}\n"
+                    
+                    # Mostrar precio actual y P&L si se pudo obtener
+                    if current_price:
+                        pnl = (current_price - entry_price) * qty
+                        roi = ((current_price - entry_price) / entry_price) * 100
+                        pnl_emoji = '💚' if pnl >= 0 else '💔'
+                        
+                        text += f"  ├ Actual: <b>${current_price:.4f}</b>\n"
+                        text += f"  ├ {pnl_emoji} P&L: <b>${pnl:+.2f}</b> ({roi:+.2f}%)\n"
+                    
+                    text += f"  ├ Cantidad: {qty:.6f}\n"
+                    text += f"  ├ Stop Loss: ${sl_price:.4f}\n"
+                    
+                    # Calcular duración
+                    if entry_time_str:
+                        try:
+                            from datetime import datetime
+                            if isinstance(entry_time_str, str):
+                                entry_time = datetime.fromisoformat(entry_time_str.replace('Z', '+00:00'))
+                            else:
+                                entry_time = entry_time_str
+                            
+                            duration = datetime.now() - entry_time.replace(tzinfo=None)
+                            hours = duration.total_seconds() / 3600
+                            
+                            if hours < 1:
+                                duration_str = f"{int(duration.total_seconds() / 60)}m"
+                            elif hours < 24:
+                                duration_str = f"{int(hours)}h {int((hours % 1) * 60)}m"
+                            else:
+                                days = int(hours / 24)
+                                remaining_hours = int(hours % 24)
+                                duration_str = f"{days}d {remaining_hours}h"
+                            
+                            text += f"  └ ⏱️ Duración: {duration_str}\n"
+                        except:
+                            pass
             
             if not positions:
                 text += "  └ Sin posiciones abiertas\n"
