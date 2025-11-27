@@ -747,6 +747,45 @@ class NeuralStrategy:
         print(f"✅ Estrategia neuronal v{version} lista")
         return True
     
+    def predict_signal(self, X):
+        """
+        Predice señal con etiqueta
+        
+        Args:
+            X: Features (1, lookback, n_features) o (lookback, n_features)
+        
+        Returns:
+            dict: {'signal': 'BUY'/'SELL'/'HOLD', 'confidence': float, 'probabilities': dict}
+        """
+        # Asegurar shape correcto
+        if len(X.shape) == 2:
+            X = np.expand_dims(X, axis=0)
+        
+        # Predicción
+        probs = self.model.predict(X, verbose=0)[0]
+        
+        # Clase con mayor probabilidad
+        predicted_class = np.argmax(probs)
+        confidence = probs[predicted_class]
+        
+        # Aplicar umbrales de confianza
+        signal = config.CLASS_LABELS[predicted_class]
+        
+        if signal == 'BUY' and confidence < config.MIN_CONFIDENCE_BUY:
+            signal = 'HOLD'
+        elif signal == 'SELL' and confidence < config.MIN_CONFIDENCE_SELL:
+            signal = 'HOLD'
+        
+        return {
+            'signal': signal,
+            'confidence': float(confidence),
+            'probabilities': {
+                'SELL': float(probs[0]),
+                'HOLD': float(probs[1]),
+                'BUY': float(probs[2])
+            }
+        }
+    
     def get_signal(self, symbol, timeframe='4h'):
         """
         Obtiene señal de trading para un símbolo
