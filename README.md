@@ -1,4 +1,4 @@
-# 🤖 Bot de Trading v1.0 Production
+# 🤖 Bot de Trading
 
 ## 🚀 Inicio Rápido
 
@@ -12,6 +12,10 @@ python bot_production.py
 ```
 bot/
 ├── bot_production.py              ⭐ Bot principal (4h, ETH/XRP/BNB/SOL)
+├── neural_strategy.py             🧠 Estrategia neuronal CNN-LSTM
+├── neural_config.py               ⚙️ Configuración estrategia neuronal
+├── neural_backtest.py             🧪 Backtesting neuronal
+├── NEURAL_STRATEGY.md             📚 Documentación completa neuronal
 ├── backtest_multi.py              🧪 Sistema de backtesting
 ├── generate_dashboard.py          📊 Generador de gráficas
 ├── backtest_multi_results.csv     📈 Resultados 21 tests
@@ -19,6 +23,7 @@ bot/
 ├── timeframe_comparison.png       📊 Comparación timeframes
 ├── roi_heatmap.png                📊 Heatmap completo
 ├── top10_configs.png              📊 Top 10 configuraciones
+├── models/                        🧠 Modelos neuronales entrenados
 ├── data/                          📁 Datos históricos OHLCV
 └── archive_old_versions/          📦 Versiones antiguas
 ```
@@ -62,6 +67,55 @@ Los siguientes documentos están disponibles en artifacts:
 2. **guia_uso_bot_production.md** - Guía completa de uso
 3. **analisis_multi_activo_multi_tf.md** - Análisis backtesting
 4. **resumen_proyecto_completo.md** - Resumen del proyecto
+5. **NEURAL_STRATEGY.md** - Documentación estrategia neuronal
+
+## 🧠 Estrategia Neuronal (NUEVO)
+
+Sistema de trading basado en **redes neuronales CNN-LSTM** con aprendizaje continuo.
+
+### 📊 Resultados Validados (ETH/USDT 2024-2025)
+
+| Métrica | Valor |
+|---------|-------|
+| **ROI** | **+32.06%** 🚀 |
+| **Win Rate** | 47.79% |
+| **Trades** | 113 |
+| **Sharpe Ratio** | 0.55 |
+| **Max Drawdown** | 49.54% |
+
+### ✨ Características
+
+- 🧠 **CNN-LSTM híbrida** optimizada para CPU
+- 📈 **Trailing Stop** (3%) para proteger ganancias
+- ⚖️ **Class Weights** automáticos para balancear clases
+- 🎯 **Filtro de confianza** (35%) para calidad de señales
+- 🔄 **Aprendizaje continuo** (reentrenamiento periódico)
+
+### 🚀 Inicio Rápido
+
+```bash
+# 1. Instalar dependencias
+pip install tensorflow-cpu scikit-learn joblib
+
+# 2. Entrenar modelo inicial
+python neural_strategy.py --mode train --symbols ETH/USDT SOL/USDT BNB/USDT
+
+# 3. Validar con backtest
+python neural_backtest.py --symbol ETH/USDT --start-date 2024-01-01
+
+# 4. Obtener predicción en tiempo real
+python neural_strategy.py --mode predict --symbol ETH/USDT
+```
+
+📚 **Documentación completa**: Ver [NEURAL_STRATEGY.md](NEURAL_STRATEGY.md)
+
+### ⚠️ Consideraciones
+
+- ⏱️ Entrenamiento inicial: 30-60 min (CPU)
+- 📊 Requiere mínimo 6-12 meses de datos históricos
+- 🧪 Siempre validar con backtest antes de uso real
+- 📉 Drawdown puede ser alto (hasta 50%)
+- 💰 Usar gestión de riesgo conservadora
 
 ## 🎯 Próximos Pasos
 
