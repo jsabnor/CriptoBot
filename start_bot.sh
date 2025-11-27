@@ -4,8 +4,8 @@
 # Leer versión del archivo VERSION
 VERSION=$(cat /home/j0s3m4/CriptoBot/VERSION | tr -d '\n\r')
 
-# Mostrar versión
-echo "========================================"
+# ============================================================================
+export PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
 echo "Trading Bot v$VERSION"
 echo "========================================"
 
