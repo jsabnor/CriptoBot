@@ -590,14 +590,14 @@ class TelegramBotHandler:
         
         if args:
             parts = args.strip().split()
-            if len(parts) >= 1 and parts[0].lower() in ['adx', 'ema']:
+            if len(parts) >= 1 and parts[0].lower() in ['adx', 'ema', 'neural']:
                 bot_name = parts[0].lower()
             if len(parts) >= 2 and parts[1].isdigit():
                 days = int(parts[1])
         
         df = self.get_trades_history(bot_name, days)
         
-        bot_emoji = '🤖' if bot_name == 'adx' else '📉'
+        bot_emoji = '🤖' if bot_name == 'adx' else ('📉' if bot_name == 'ema' else '🧠')
         text = f"📋 <b>HISTORIAL {bot_name.upper()}</b> (últimos {days} días)\n\n"
         
         if df is None or df.empty:
