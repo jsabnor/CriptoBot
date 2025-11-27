@@ -567,6 +567,10 @@ class TelegramBotHandler:
     def handle_message(self, message):
         """Maneja mensajes entrantes"""
         chat_id = message['chat']['id']
+        text = message.get('text', '')
+        user_id = message.get('from', {}).get('id', 'unknown')
+        
+        print(f"📩 DEBUG: Mensaje recibido de ChatID: {chat_id} | UserID: {user_id} | Texto: {text}")
         
         # Verificar autorización
         if not self.is_authorized(chat_id):
@@ -583,7 +587,8 @@ class TelegramBotHandler:
         # Comandos
         if text.startswith('/'):
             parts = text.split(maxsplit=1)
-            command = parts[0].lower()
+            # Manejar /comando@nombre_bot
+            command = parts[0].lower().split('@')[0]
             args = parts[1] if len(parts) > 1 else None
             
             command_map = {
@@ -637,9 +642,13 @@ class TelegramBotHandler:
                 for update in updates:
                     self.last_update_id = update['update_id']
                     
-                    # Manejar mensajes
+                    # Manejar mensajes (privados y grupos)
                     if 'message' in update:
                         self.handle_message(update['message'])
+                    
+                    # Manejar mensajes de canales
+                    elif 'channel_post' in update:
+                        self.handle_message(update['channel_post'])
                     
                     # Manejar callbacks de botones
                     elif 'callback_query' in update:
