@@ -147,6 +147,52 @@ class TelegramBotHandler:
             print(f"❌ Error leyendo historial de {bot_name}: {e}")
             return None
     
+    def get_current_price(self, symbol):
+        """Obtiene el precio actual de un símbolo desde Binance"""
+        try:
+            url = f"https://api.binance.com/api/v3/ticker/price?symbol={symbol.replace('/', '')}"
+            response = requests.get(url, timeout=5)
+            if response.status_code == 200:
+                data = response.json()
+                return float(data['price'])
+        except Exception as e:
+            print(f"❌ Error obteniendo precio de {symbol}: {e}")
+        return None
+    
+    def calculate_total_equity(self, bot_state):
+        """
+        Calcula el equity total de un bot (efectivo + valor de posiciones abiertas)
+        
+        Args:
+            bot_state: Estado del bot desde JSON
+            
+        Returns:
+            tuple: (equity_total, equity_cash, positions_value)
+        """
+        if not bot_state:
+            return 0, 0, 0
+        
+        # Equity en efectivo
+        equity_dict = bot_state.get('equity', {})
+        equity_cash = sum(equity_dict.values())
+        
+        # Valor de posiciones abiertas
+        positions_value = 0
+        positions = bot_state.get('positions', {})
+        
+        for symbol, position in positions.items():
+            if position:
+                current_price = self.get_current_price(symbol)
+                if current_price:
+                    # Obtener cantidad según el formato del bot
+                    qty = position.get('size', position.get('qty', 0))
+                    if qty > 0:
+                        positions_value += qty * current_price
+        
+        equity_total = equity_cash + positions_value
+        
+        return equity_total, equity_cash, positions_value
+    
     def cmd_start(self, chat_id):
         """Comando /start - Menú principal"""
         text = (
@@ -198,15 +244,28 @@ class TelegramBotHandler:
         
         text = "📊 <b>ESTADO DE LOS BOTS</b>\n\n"
         
+        total_equity_adx = 0
+        total_equity_ema = 0
+        
         # Bot ADX
         if adx_state:
-            equity_adx = adx_state.get('equity', {})
-            total_equity_adx = sum(equity_adx.values())
+            equity_total, equity_cash, positions_value = self.calculate_total_equity(adx_state)
+            total_equity_adx = equity_total
             positions_adx = sum(1 for p in adx_state.get('positions', {}).values() if p)
             
             text += (
                 "🤖 <b>Bot ADX (Estrategia ADX + ATR)</b>\n"
-                f"💰 Equity Total: <b>${total_equity_adx:.2f}</b>\n"
+                f"💰 Equity Total: <b>${equity_total:.2f}</b>\n"
+            )
+            
+            # Mostrar desglose si hay posiciones
+            if positions_value > 0:
+                text += (
+                    f"  └ Efectivo: ${equity_cash:.2f}\n"
+                    f"  └ Posiciones: ${positions_value:.2f}\n"
+                )
+            
+            text += (
                 f"📍 Posiciones: <b>{positions_adx}/4</b>\n"
                 f"📅 Última actualización: {adx_state.get('timestamp', 'N/A')}\n\n"
             )
@@ -215,13 +274,23 @@ class TelegramBotHandler:
         
         # Bot EMA
         if ema_state:
-            equity_ema = ema_state.get('equity', {})
-            total_equity_ema = sum(equity_ema.values())
-            positions_ema = len(ema_state.get('positions', {}))
+            equity_total, equity_cash, positions_value = self.calculate_total_equity(ema_state)
+            total_equity_ema = equity_total
+            positions_ema = sum(1 for p in ema_state.get('positions', {}).values() if p)
             
             text += (
                 "📉 <b>Bot EMA (Estrategia EMA 15/30)</b>\n"
-                f"💰 Equity Total: <b>${total_equity_ema:.2f}</b>\n"
+                f"💰 Equity Total: <b>${equity_total:.2f}</b>\n"
+            )
+            
+            # Mostrar desglose si hay posiciones
+            if positions_value > 0:
+                text += (
+                    f"  └ Efectivo: ${equity_cash:.2f}\n"
+                    f"  └ Posiciones: ${positions_value:.2f}\n"
+                )
+            
+            text += (
                 f"📍 Posiciones: <b>{positions_ema}/4</b>\n"
                 f"📅 Última actualización: {ema_state.get('last_update', 'N/A')}\n\n"
             )
@@ -229,7 +298,7 @@ class TelegramBotHandler:
             text += "📉 <b>Bot EMA</b>: ❌ Estado no disponible\n\n"
         
         # Total combinado
-        if adx_state and ema_state:
+        if adx_state or ema_state:
             total_combined = total_equity_adx + total_equity_ema
             text += (
                 "━━━━━━━━━━━━━━━━━━━━\n"

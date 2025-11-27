@@ -130,6 +130,7 @@ fi
 # ============================================================================
 BOT_ADX_RUNNING=false
 BOT_EMA_RUNNING=false
+BOT_TELEGRAM_RUNNING=false
 
 if systemctl is-active --quiet bot.service 2>/dev/null; then
     BOT_ADX_RUNNING=true
@@ -141,7 +142,12 @@ if systemctl is-active --quiet bot_ema.service 2>/dev/null; then
     print_warning "El bot EMA está corriendo como servicio"
 fi
 
-if [ "$BOT_ADX_RUNNING" = true ] || [ "$BOT_EMA_RUNNING" = true ]; then
+if systemctl is-active --quiet telegram_bot.service 2>/dev/null; then
+    BOT_TELEGRAM_RUNNING=true
+    print_warning "El bot de Telegram está corriendo como servicio"
+fi
+
+if [ "$BOT_ADX_RUNNING" = true ] || [ "$BOT_EMA_RUNNING" = true ] || [ "$BOT_TELEGRAM_RUNNING" = true ]; then
     echo "Los bots se detendrán temporalmente para aplicar la actualización"
 fi
 
@@ -169,7 +175,7 @@ print_success "Backup creado exitosamente"
 print_info "Ubicación: $BACKUP_DIR"
 
 # ============================================================================
-# 7. DETENER LOS BOTS SI ESTÁN CORRIENDO
+# 7. DETENER LOS BOTS SI ESTÁN CORRIENDO  
 # ============================================================================
 if [ "$BOT_ADX_RUNNING" = true ]; then
     print_info "Deteniendo el bot ADX..."
@@ -181,6 +187,12 @@ if [ "$BOT_EMA_RUNNING" = true ]; then
     print_info "Deteniendo el bot EMA..."
     sudo systemctl stop bot_ema.service
     print_success "Bot EMA detenido"
+fi
+
+if [ "$BOT_TELEGRAM_RUNNING" = true ]; then
+    print_info "Deteniendo el bot de Telegram..."
+    sudo systemctl stop telegram_bot.service
+    print_success "Bot de Telegram detenido"
 fi
 
 # ============================================================================
@@ -204,6 +216,9 @@ fi
 # ============================================================================
 print_header "APLICANDO ACTUALIZACIÓN"
 
+# Guardar hash del update.sh actual para detectar si cambió
+CURRENT_UPDATE_HASH=$(md5sum "$0" 2>/dev/null | cut -d' ' -f1)
+
 # Guardar cambios locales temporalmente (especialmente update.sh)
 print_info "Guardando cambios locales temporalmente..."
 git stash push -m "Auto-stash before update $(date +%Y%m%d_%H%M%S)" 2>/dev/null || true
@@ -223,6 +238,28 @@ if git stash list | grep -q "Auto-stash before update"; then
 fi
 
 print_success "Código actualizado"
+
+# ============================================================================
+# 9.5. VERIFICAR SI UPDATE.SH CAMBIÓ Y RE-EJECUTAR
+# ============================================================================
+NEW_UPDATE_HASH=$(md5sum "$0" 2>/dev/null | cut -d' ' -f1)
+
+if [ "$CURRENT_UPDATE_HASH" != "$NEW_UPDATE_HASH" ]; then
+    print_warning "El script update.sh ha sido actualizado"
+    print_info "Re-ejecutando con la nueva versión..."
+    
+    # Marcar que ya estamos en una re-ejecución para evitar bucles infinitos
+    export UPDATE_REEXECUTED="true"
+    
+    # Re-ejecutar el script actualizado
+    exec bash "$0" "$@"
+fi
+
+# Si llegamos aquí y ya fue re-ejecutado, continuar normalmente
+if [ "$UPDATE_REEXECUTED" = "true" ]; then
+    print_info "Ejecutando versión actualizada del script"
+    unset UPDATE_REEXECUTED
+fi
 
 # ============================================================================
 # 10. RESTAURAR ARCHIVOS DE CONFIGURACIÓN
@@ -288,6 +325,12 @@ if [ -f "bot_ema.service" ]; then
     print_success "bot_ema.service actualizado"
 fi
 
+if [ -f "telegram_bot.service" ]; then
+    print_info "Actualizando telegram_bot.service..."
+    sudo cp telegram_bot.service /etc/systemd/system/telegram_bot.service
+    print_success "telegram_bot.service actualizado"
+fi
+
 # Recargar systemd
 print_info "Recargando systemd..."
 sudo systemctl daemon-reload
@@ -320,7 +363,7 @@ print_success "Permisos corregidos"
 # ============================================================================
 # 12. REINICIAR LOS BOTS
 # ============================================================================
-if [ "$BOT_ADX_RUNNING" = true ] || [ "$BOT_EMA_RUNNING" = true ]; then
+if [ "$BOT_ADX_RUNNING" = true ] || [ "$BOT_EMA_RUNNING" = true ] || [ "$BOT_TELEGRAM_RUNNING" = true ]; then
     print_header "REINICIANDO BOTS"
     
     if [ "$BOT_ADX_RUNNING" = true ]; then
@@ -348,6 +391,19 @@ if [ "$BOT_ADX_RUNNING" = true ] || [ "$BOT_EMA_RUNNING" = true ]; then
             echo "Verifica: sudo systemctl status bot_ema"
         fi
     fi
+    
+    if [ "$BOT_TELEGRAM_RUNNING" = true ]; then
+        print_info "Iniciando el bot de Telegram..."
+        sudo systemctl start telegram_bot.service
+        sleep 2
+        
+        if systemctl is-active --quiet telegram_bot.service; then
+            print_success "Bot de Telegram reiniciado exitosamente"
+        else
+            print_error "El bot de Telegram no pudo iniciar correctamente"
+            echo "Verifica: sudo systemctl status telegram_bot"
+        fi
+    fi
 fi
 
 # ============================================================================
@@ -363,7 +419,7 @@ echo -e "  Versión anterior: v$LOCAL_VERSION"
 echo -e "  Versión actual:   v$NEW_VERSION"
 echo -e "  Backup guardado:  $BACKUP_DIR"
 
-if [ "$BOT_ADX_RUNNING" = true ] || [ "$BOT_EMA_RUNNING" = true ]; then
+if [ "$BOT_ADX_RUNNING" = true ] || [ "$BOT_EMA_RUNNING" = true ] || [ "$BOT_TELEGRAM_RUNNING" = true ]; then
     echo -e "\n${BLUE}Estado de los bots:${NC}"
     
     if [ "$BOT_ADX_RUNNING" = true ]; then
@@ -375,13 +431,19 @@ if [ "$BOT_ADX_RUNNING" = true ] || [ "$BOT_EMA_RUNNING" = true ]; then
         echo -e "\n${GREEN}Bot EMA:${NC}"
         sudo systemctl status bot_ema --no-pager -l | head -10
     fi
+    
+    if [ "$BOT_TELEGRAM_RUNNING" = true ]; then
+        echo -e "\n${GREEN}Bot Telegram:${NC}"
+        sudo systemctl status telegram_bot --no-pager -l | head -10
+    fi
 fi
 
 echo -e "\n${BLUE}Comandos útiles:${NC}"
-echo "  sudo systemctl status bot bot_ema  - Ver estado de ambos bots"
-echo "  sudo journalctl -u bot -f          - Ver logs bot ADX"
-echo "  sudo journalctl -u bot_ema -f      - Ver logs bot EMA"
-echo "  cat bot_state.json                 - Ver estado bot ADX"
-echo "  cat bot_state_ema.json             - Ver estado bot EMA"
+echo "  sudo systemctl status bot bot_ema telegram_bot  - Ver estado de los bots"
+echo "  sudo journalctl -u bot -f                       - Ver logs bot ADX"
+echo "  sudo journalctl -u bot_ema -f                   - Ver logs bot EMA"
+echo "  sudo journalctl -u telegram_bot -f              - Ver logs bot Telegram"
+echo "  cat bot_state.json                              - Ver estado bot ADX"
+echo "  cat bot_state_ema.json                          - Ver estado bot EMA"
 
 echo -e "\n${GREEN}¡Actualización exitosa!${NC}\n"
