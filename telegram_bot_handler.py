@@ -434,10 +434,14 @@ class TelegramBotHandler:
                 updates = self.get_updates()
                 for update in updates:
                     self.last_update_id = update['update_id']
+                    
                     if 'message' in update:
                         self.handle_message(update['message'])
+                    elif 'channel_post' in update:
+                        self.handle_message(update['channel_post'])
                     elif 'callback_query' in update:
                         self.handle_callback_query(update['callback_query'])
+                        
                 time.sleep(0.5)
             except KeyboardInterrupt:
                 break
