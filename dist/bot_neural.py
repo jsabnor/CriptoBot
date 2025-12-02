@@ -24,7 +24,7 @@ import config
 # ============================================================================
 
 class NeuralBot:
-    def __init__(self, mode=None, model_name=None, bot_id=None):
+    def __init__(self, mode=None, model_name=None, bot_id=None, symbols=None):
         """
         Inicializa el bot de trading neuronal.
         
@@ -32,6 +32,7 @@ class NeuralBot:
             mode: Modo de operación (paper/live)
             model_name: Nombre del modelo a cargar (None = usar default)
             bot_id: Identificador único del bot (ej: BTC, ETH)
+            symbols: Lista de símbolos a operar (None = usar default)
         """
         # Cargar credenciales
         self.API_KEY = config.API_KEY
@@ -44,8 +45,12 @@ class NeuralBot:
         self.MODE = mode if mode else config.TRADING_MODE
         self.TIMEFRAME = config.TIMEFRAME
         self.BOT_ID = bot_id if bot_id else "neural"
-        # Override: Bot Neural usa solo top 3 performers (basado en backtest)
-        self.SYMBOLS = ['SOL/USDT', 'ETH/USDT', 'XRP/USDT']
+        # Símbolos: usar los pasados o default
+        if symbols:
+            self.SYMBOLS = symbols
+        else:
+            # Default: Bot Neural usa solo top 3 performers (basado en backtest)
+            self.SYMBOLS = ['SOL/USDT', 'ETH/USDT', 'XRP/USDT']
         self.CAPITAL_PER_PAIR = config.CAPITAL_PER_PAIR
         self.TOTAL_CAPITAL = self.CAPITAL_PER_PAIR * len(self.SYMBOLS)
         
@@ -352,13 +357,19 @@ if __name__ == "__main__":
         # Obtener model_name de argumentos o variable de entorno
         model_name = args.model or os.getenv('NEURAL_MODEL')
         
-        bot = NeuralBot(mode=args.mode, model_name=model_name, bot_id=args.id)
-        
-        # Override symbols if provided
+        # Parsear símbolos si se pasaron
+        symbols = None
         if args.symbols:
-            bot.SYMBOLS = [s.strip() for s in args.symbols.split(',')]
-            print(f"ℹ️  Sobreescribiendo símbolos: {bot.SYMBOLS}")
-            
+            symbols = [s.strip() for s in args.symbols.split(',')]
+        
+        # Crear bot con todos los parámetros
+        bot = NeuralBot(
+            mode=args.mode, 
+            model_name=model_name, 
+            bot_id=args.id,
+            symbols=symbols
+        )
+        
         bot.run_continuous()
     except Exception as e:
         print(f"❌ Error fatal: {e}")
