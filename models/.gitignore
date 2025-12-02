@@ -1,7 +1,5 @@
 # Ignorar modelos entrenados (son grandes y específicos)
-*.keras
 *.h5
-*.pkl
 neural_backtest_results*.json
 
 # Ignorar logs
