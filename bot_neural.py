@@ -13,7 +13,7 @@ from datetime import datetime
 import json
 from telegram_notifier import TelegramNotifier
 from data_cache import DataCache
-from neural_strategy import NeuralStrategy
+from neural_bot import NeuralStrategy
 import config
 
 # ============================================================================
@@ -24,9 +24,13 @@ import config
 # ============================================================================
 
 class NeuralBot:
-    def __init__(self, mode=None):
+    def __init__(self, mode=None, model_name=None):
         """
         Inicializa el bot de trading neuronal.
+        
+        Args:
+            mode: Modo de operación (paper/live)
+            model_name: Nombre del modelo a cargar (None = usar default)
         """
         # Cargar credenciales
         self.API_KEY = config.API_KEY
@@ -72,7 +76,9 @@ class NeuralBot:
         
         # Estrategia Neuronal
         print("🧠 Cargando estrategia neuronal...")
-        self.strategy = NeuralStrategy()
+        if model_name:
+            print(f"   Modelo especificado: {model_name}")
+        self.strategy = NeuralStrategy(model_name=model_name)
         if self.strategy.model is None:
             print("⚠️ ADVERTENCIA: No se pudo cargar el modelo neuronal.")
             print("   Asegúrate de tener modelos en la carpeta 'models/'")
@@ -331,8 +337,18 @@ class NeuralBot:
                 time.sleep(60)
 
 if __name__ == "__main__":
+    import argparse
+    
+    parser = argparse.ArgumentParser(description='Neural Trading Bot')
+    parser.add_argument('--mode', type=str, choices=['paper', 'live'], help='Trading mode')
+    parser.add_argument('--model', type=str, help='Model name to load')
+    args = parser.parse_args()
+    
     try:
-        bot = NeuralBot()
+        # Obtener model_name de argumentos o variable de entorno
+        model_name = args.model or os.getenv('NEURAL_MODEL')
+        
+        bot = NeuralBot(mode=args.mode, model_name=model_name)
         bot.run_continuous()
     except Exception as e:
         print(f"❌ Error fatal: {e}")

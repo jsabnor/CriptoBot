@@ -1,0 +1,12 @@
+{
+  "symbols": [
+    "ETH/USDT"
+  ],
+  "timeframe": "1h",
+  "description": "Model trained on ETH/USDT",
+  "accuracy": null,
+  "name": "ETH_USDT_1h",
+  "saved_at": "2025-12-01T20:18:32.781666",
+  "model_file": "models\\ETH_USDT_1h\\model.keras",
+  "scaler_file": "models\\ETH_USDT_1h\\scaler.pkl"
+}

@@ -13,16 +13,20 @@ class NeuralConfig:
     # Ventana de lookback (cuántas velas históricas usar para predecir)
     LOOKBACK_WINDOW = 60  # 60 velas para contexto temporal
     
-    # CNN: Detecta patrones locales en precios
-    CNN_FILTERS = [32, 64]  # Filtros por capa convolucional
-    CNN_KERNEL_SIZE = 3     # Tamaño del kernel
+    # CNN: Detecta patrones locales en precios (OPTIMIZADO)
+    CNN_FILTERS = [128, 256]  # Filtros por capa convolucional (aumentado)
+    CNN_KERNEL_SIZE = 3      # Tamaño del kernel
     
-    # LSTM: Captura dependencias temporales
-    LSTM_UNITS = 50         # Unidades LSTM (mantener bajo para CPU)
+    # LSTM: Captura dependencias temporales (OPTIMIZADO)
+    LSTM_UNITS = 128         # Unidades LSTM (aumentado para mayor capacidad)
     LSTM_DROPOUT = 0.2      # Dropout para prevenir overfitting
     
+    # Attention Layer (NUEVO)
+    USE_ATTENTION = True    # Añade attention mechanism después de LSTM
+    ATTENTION_UNITS = 128   # Unidades en attention layer
+    
     # Capas densas finales
-    DENSE_UNITS = [32, 16]  # Capas densas antes de la salida
+    DENSE_UNITS = [256, 128]  # Capas densas antes de la salida (aumentado)
     DENSE_DROPOUT = 0.3
     
     # Salida: 3 clases (BUY, SELL, HOLD)
@@ -38,6 +42,14 @@ class NeuralConfig:
         'rsi': 14,
         'atr': 14,
         'adx': 14,
+        'macd_fast': 12,      # MACD fast period
+        'macd_slow': 26,      # MACD slow period
+        'macd_signal': 9,     # MACD signal period
+        'bb_period': 20,      # Bollinger Bands period
+        'bb_std': 2,          # Bollinger Bands standard deviation
+        'stoch_k': 14,        # Stochastic %K period
+        'stoch_d': 3,         # Stochastic %D period
+        'cci': 20,            # CCI period
     }
     
     # Features de precio (se calculan automáticamente)
@@ -50,21 +62,41 @@ class NeuralConfig:
         'volume_change',     # Cambio en volumen
     ]
     
+    # Features de volumen avanzados
+    VOLUME_FEATURES = [
+        'vwap',              # Volume Weighted Average Price
+        'obv',               # On Balance Volume
+        'volume_ratio',      # Volume vs average
+    ]
+    
+    # Features cruzados (derivados de otros indicadores)
+    CROSS_FEATURES = [
+        'ema_cross',         # EMA fast vs slow (crossover signal)
+        'price_to_ema_fast', # Distance from price to EMA fast
+        'price_to_ema_slow', # Distance from price to EMA slow
+    ]
+    
     # ================== ENTRENAMIENTO ==================
     
     # Entrenamiento inicial
-    INITIAL_EPOCHS = 100         # Épocas para entrenamiento inicial
-    BATCH_SIZE = 32             # Batch size (bajo para CPU)
-    LEARNING_RATE = 0.0001      # Learning rate reducido para estabilidad
+    INITIAL_EPOCHS = 150         # Épocas para entrenamiento inicial (aumentado)
+    BATCH_SIZE = 64              # Batch size optimizado
+    LEARNING_RATE = 0.0005        # Learning rate inicial (con schedule)
+    
+    # Learning Rate Schedule (NUEVO)
+    USE_LR_SCHEDULE = True       # Reduce LR cuando no mejora
+    LR_PATIENCE = 10             # Épocas sin mejora antes de reducir LR
+    LR_FACTOR = 0.5              # Factor de reducción de LR
+    LR_MIN = 0.00001             # LR mínimo
     
     # Entrenamiento incremental
     INCREMENTAL_EPOCHS = 15    # Épocas para reentrenamiento
     
     # Validación
-    VALIDATION_SPLIT = 0.2      # 20% de datos para validación
+    VALIDATION_SPLIT = 0.3      # 30% de datos para validación
     
     # Early stopping
-    EARLY_STOPPING_PATIENCE = 25  # Parar si no mejora en N épocas
+    EARLY_STOPPING_PATIENCE = 20  # Parar si no mejora en N épocas (ajustado)
     
     # ================== APRENDIZAJE CONTINUO ==================
     
@@ -98,8 +130,8 @@ class NeuralConfig:
     # ================== SEÑALES DE TRADING ==================
     
     # Umbral de confianza para generar señal
-    MIN_CONFIDENCE_BUY = 0.35    # 35% confianza (más selectivo)
-    MIN_CONFIDENCE_SELL = 0.35   # 35% confianza (más selectivo)
+    MIN_CONFIDENCE_BUY = 0.32    # 35% confianza (más selectivo)
+    MIN_CONFIDENCE_SELL = 0.32   # 35% confianza (más selectivo)
     
     # Clases de señal
     CLASS_LABELS = {
@@ -114,22 +146,24 @@ class NeuralConfig:
     DEFAULT_SYMBOLS = [
         'ETH/USDT',
         'SOL/USDT',
-        'BNB/USDT',
+        'XRP/USDT',
+        'ADA/USDT',
+        'BNB/USDT'
     ]
     
     # Timeframe
-    DEFAULT_TIMEFRAME = '4h'
+    DEFAULT_TIMEFRAME = '1h'
     
     # Mínimo de datos para entrenar
-    MIN_TRAIN_SAMPLES = 1000    # Al menos 1000 muestras
+    MIN_TRAIN_SAMPLES = 5000    # Al menos 1000 muestras
     
     # ================== LABELING ==================
     
     # Estrategia para etiquetar datos históricos
     # Mira N velas hacia adelante para determinar si fue buena operación
-    LABEL_LOOKAHEAD = 5         # Mirar 5 velas adelante
-    LABEL_PROFIT_THRESHOLD = 0.02  # 2% ganancia → BUY label
-    LABEL_LOSS_THRESHOLD = -0.02   # -2% pérdida → SELL label
+    LABEL_LOOKAHEAD = 6         # Mirar 5 velas adelante
+    LABEL_PROFIT_THRESHOLD = 0.012  # 2% ganancia → BUY label
+    LABEL_LOSS_THRESHOLD = -0.018   # -2% pérdida → SELL label
     # Entre -2% y +2% → HOLD label
     
     # ================== OPTIMIZACIÓN ==================

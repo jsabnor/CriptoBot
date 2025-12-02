@@ -1,0 +1,16 @@
+{
+  "symbols": [
+    "ETH/USDT",
+    "SOL/USDT",
+    "XRP/USDT",
+    "ADA/USDT",
+    "BNB/USDT"
+  ],
+  "timeframe": "1h",
+  "description": "Model trained on ETH/USDT, SOL/USDT, XRP/USDT, ADA/USDT, BNB/USDT",
+  "accuracy": null,
+  "name": "GENERAL_4h",
+  "saved_at": "2025-12-01T21:50:33.470652",
+  "model_file": "models\\GENERAL_4h\\model.keras",
+  "scaler_file": "models\\GENERAL_4h\\scaler.pkl"
+}

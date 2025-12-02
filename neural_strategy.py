@@ -51,12 +51,12 @@ class FeatureExtractor:
         self.feature_names = []
         
     def calculate_technical_indicators(self, df):
-        """Calcula indicadores técnicos configurados"""
+        """Calcula indicadores técnicos configurados (OPTIMIZADO)"""
         result = df.copy()
         
         # EMAs
         for name, period in config.TECHNICAL_INDICATORS.items():
-            if 'ema' in name:
+            if 'ema' in name and name in ['ema_fast', 'ema_slow', 'ema_trend']:
                 result[name] = result['close'].ewm(span=period, adjust=False).mean()
         
         # RSI
@@ -82,14 +82,12 @@ class FeatureExtractor:
         if 'adx' in config.TECHNICAL_INDICATORS:
             period = config.TECHNICAL_INDICATORS['adx']
             
-            # +DM y -DM
             high_diff = result['high'].diff()
             low_diff = -result['low'].diff()
             
             plus_dm = high_diff.where((high_diff > low_diff) & (high_diff > 0), 0)
             minus_dm = low_diff.where((low_diff > high_diff) & (low_diff > 0), 0)
             
-            # ATR ya calculado arriba
             if 'atr' not in result.columns:
                 result['atr'] = true_range.rolling(window=period).mean()
             
@@ -99,10 +97,83 @@ class FeatureExtractor:
             dx = 100 * np.abs(plus_di - minus_di) / (plus_di + minus_di)
             result['adx'] = dx.rolling(window=period).mean()
         
+        # MACD (NUEVO)
+        if all(k in config.TECHNICAL_INDICATORS for k in ['macd_fast', 'macd_slow', 'macd_signal']):
+            fast = config.TECHNICAL_INDICATORS['macd_fast']
+            slow = config.TECHNICAL_INDICATORS['macd_slow']
+            signal = config.TECHNICAL_INDICATORS['macd_signal']
+            
+            ema_fast = result['close'].ewm(span=fast, adjust=False).mean()
+            ema_slow = result['close'].ewm(span=slow, adjust=False).mean()
+            
+            result['macd_line'] = ema_fast - ema_slow
+            result['macd_signal'] = result['macd_line'].ewm(span=signal, adjust=False).mean()
+            result['macd_histogram'] = result['macd_line'] - result['macd_signal']
+        
+        # Bollinger Bands (NUEVO)
+        if 'bb_period' in config.TECHNICAL_INDICATORS and 'bb_std' in config.TECHNICAL_INDICATORS:
+            period = config.TECHNICAL_INDICATORS['bb_period']
+            std_dev = config.TECHNICAL_INDICATORS['bb_std']
+            
+            result['bb_middle'] = result['close'].rolling(window=period).mean()
+            bb_std = result['close'].rolling(window=period).std()
+            
+            result['bb_upper'] = result['bb_middle'] + (bb_std * std_dev)
+            result['bb_lower'] = result['bb_middle'] - (bb_std * std_dev)
+            
+            # %B: Posición relativa dentro de las bandas
+            result['bb_percent'] = (result['close'] - result['bb_lower']) / (result['bb_upper'] - result['bb_lower'])
+            
+            # Bandwidth: Ancho de las bandas (volatilidad)
+            result['bb_bandwidth'] = (result['bb_upper'] - result['bb_lower']) / result['bb_middle']
+        
+        # Stochastic Oscillator (NUEVO)
+        if 'stoch_k' in config.TECHNICAL_INDICATORS and 'stoch_d' in config.TECHNICAL_INDICATORS:
+            k_period = config.TECHNICAL_INDICATORS['stoch_k']
+            d_period = config.TECHNICAL_INDICATORS['stoch_d']
+            
+            low_min = result['low'].rolling(window=k_period).min()
+            high_max = result['high'].rolling(window=k_period).max()
+            
+            result['stoch_k'] = 100 * (result['close'] - low_min) / (high_max - low_min)
+            result['stoch_d'] = result['stoch_k'].rolling(window=d_period).mean()
+        
+        # CCI - Commodity Channel Index (NUEVO)
+        if 'cci' in config.TECHNICAL_INDICATORS:
+            period = config.TECHNICAL_INDICATORS['cci']
+            
+            tp = (result['high'] + result['low'] + result['close']) / 3
+            sma_tp = tp.rolling(window=period).mean()
+            mad = tp.rolling(window=period).apply(lambda x: np.abs(x - x.mean()).mean())
+            
+            result['cci'] = (tp - sma_tp) / (0.015 * mad)
+        
+        # VWAP - Volume Weighted Average Price (NUEVO)
+        if hasattr(config, 'VOLUME_FEATURES') and 'vwap' in config.VOLUME_FEATURES:
+            typical_price = (result['high'] + result['low'] + result['close']) / 3
+            result['vwap'] = (typical_price * result['volume']).cumsum() / result['volume'].cumsum()
+        
+        # OBV - On Balance Volume (NUEVO)
+        if hasattr(config, 'VOLUME_FEATURES') and 'obv' in config.VOLUME_FEATURES:
+            obv = [0]
+            for i in range(1, len(result)):
+                if result['close'].iloc[i] > result['close'].iloc[i-1]:
+                    obv.append(obv[-1] + result['volume'].iloc[i])
+                elif result['close'].iloc[i] < result['close'].iloc[i-1]:
+                    obv.append(obv[-1] - result['volume'].iloc[i])
+                else:
+                    obv.append(obv[-1])
+            result['obv'] = obv
+        
+        # Volume Ratio (NUEVO)
+        if hasattr(config, 'VOLUME_FEATURES') and 'volume_ratio' in config.VOLUME_FEATURES:
+            result['volume_ratio'] = result['volume'] / result['volume'].rolling(window=20).mean()
+        
         return result
+
     
     def calculate_price_features(self, df):
-        """Calcula features basadas en precio"""
+        """Calcula features basadas en precio (OPTIMIZADO)"""
         result = df.copy()
         
         # Returns
@@ -113,7 +184,7 @@ class FeatureExtractor:
         if 'log_returns' in config.PRICE_FEATURES:
             result['log_returns'] = np.log(result['close'] / result['close'].shift(1))
         
-        # Volatilidad (rolling std de returns)
+        # Volatilidad
         if 'volatility' in config.PRICE_FEATURES:
             result['volatility'] = result['close'].pct_change().rolling(window=20).std()
         
@@ -128,6 +199,20 @@ class FeatureExtractor:
         # Volume change
         if 'volume_change' in config.PRICE_FEATURES:
             result['volume_change'] = result['volume'].pct_change()
+        
+        # CROSS FEATURES (NUEVO)
+        if hasattr(config, 'CROSS_FEATURES'):
+            # EMA Crossover Signal
+            if 'ema_cross' in config.CROSS_FEATURES and 'ema_fast' in result.columns and 'ema_slow' in result.columns:
+                result['ema_cross'] = (result['ema_fast'] - result['ema_slow']) / result['close']
+            
+            # Distance from price to EMA fast
+            if 'price_to_ema_fast' in config.CROSS_FEATURES and 'ema_fast' in result.columns:
+                result['price_to_ema_fast'] = (result['close'] - result['ema_fast']) / result['close']
+            
+            # Distance from price to EMA slow
+            if 'price_to_ema_slow' in config.CROSS_FEATURES and 'ema_slow' in result.columns:
+                result['price_to_ema_slow'] = (result['close'] - result['ema_slow']) / result['close']
         
         return result
     
@@ -148,20 +233,51 @@ class FeatureExtractor:
         
         # Seleccionar columnas de features
         feature_cols = []
-        
+
         # OHLCV básicos
         feature_cols.extend(['open', 'high', 'low', 'close', 'volume'])
-        
-        # Indicadores técnicos
-        for name in config.TECHNICAL_INDICATORS.keys():
+
+        # Indicadores técnicos base
+        for name in ['ema_fast', 'ema_slow', 'ema_trend', 'rsi', 'atr', 'adx']:
             if name in df_features.columns:
                 feature_cols.append(name)
-        
+
+        # MACD features
+        for macd_feat in ['macd_line', 'macd_signal', 'macd_histogram']:
+            if macd_feat in df_features.columns:
+                feature_cols.append(macd_feat)
+
+        # Bollinger Bands features  
+        for bb_feat in ['bb_percent', 'bb_bandwidth']:
+            if bb_feat in df_features.columns:
+                feature_cols.append(bb_feat)
+
+        # Stochastic features
+        for stoch_feat in ['stoch_k', 'stoch_d']:
+            if stoch_feat in df_features.columns:
+                feature_cols.append(stoch_feat)
+
+        # CCI
+        if 'cci' in df_features.columns:
+            feature_cols.append('cci')
+
         # Features de precio
         for name in config.PRICE_FEATURES:
             if name in df_features.columns:
                 feature_cols.append(name)
-        
+
+        # Volume features (NUEVO)
+        if hasattr(config, 'VOLUME_FEATURES'):
+            for name in config.VOLUME_FEATURES:
+                if name in df_features.columns:
+                    feature_cols.append(name)
+
+        # Cross features (NUEVO)
+        if hasattr(config, 'CROSS_FEATURES'):
+            for name in config.CROSS_FEATURES:
+                if name in df_features.columns:
+                    feature_cols.append(name)
+
         # Guardar nombres de features
         self.feature_names = feature_cols
         
@@ -244,42 +360,67 @@ class DataLabeler:
     @staticmethod
     def label_data(df):
         """
-        Etiqueta datos basándose en rendimiento futuro
+        Etiqueta datos usando enfoque híbrido de percentiles
         
-        Mira N velas hacia adelante y determina si hubiera sido
-        una buena operación de compra, venta o hold.
+        - Filtra movimientos significativos (>0.8%)
+        - Aplica percentiles para balance automático
+        - Movimientos pequeños → HOLD
         
         Returns:
             np.array de labels: 0=SELL, 1=HOLD, 2=BUY
         """
         lookahead = config.LABEL_LOOKAHEAD
-        profit_threshold = config.LABEL_PROFIT_THRESHOLD
-        loss_threshold = config.LABEL_LOSS_THRESHOLD
+        min_movement = 0.008  # 0.8% movimiento mínimo significativo
         
         labels = []
+        future_returns = []
         
+        # Paso 1: Calcular todos los retornos futuros
         for i in range(len(df)):
-            # Últimas velas no tienen suficiente futuro
             if i >= len(df) - lookahead:
-                labels.append(1)  # HOLD por defecto
+                future_returns.append(0)
                 continue
             
             current_price = df.iloc[i]['close']
             future_prices = df.iloc[i+1:i+lookahead+1]['close']
             
-            # Calcular max ganancia y pérdida en el período futuro
+            # Calcular máxima ganancia y pérdida
             max_gain = (future_prices.max() - current_price) / current_price
             max_loss = (future_prices.min() - current_price) / current_price
             
-            # Etiquetar
-            if max_gain >= profit_threshold and abs(max_loss) < abs(profit_threshold) * 0.5:
-                # Buena oportunidad de compra
+            # Usar el movimiento más significativo (absoluto)
+            if abs(max_gain) > abs(max_loss):
+                future_returns.append(max_gain)
+            else:
+                future_returns.append(max_loss)
+        
+        future_returns = np.array(future_returns)
+        
+        # Paso 2: Calcular percentiles SOLO de movimientos significativos
+        significant_moves = future_returns[np.abs(future_returns) > min_movement]
+        
+        if len(significant_moves) > 100:  # Mínimo de datos para percentiles confiables
+            # Top 33% = BUY, Bottom 33% = SELL
+            buy_threshold = np.percentile(significant_moves, 67)
+            sell_threshold = np.percentile(significant_moves, 33)
+        else:
+            # Fallback a valores razonables
+            buy_threshold = min_movement
+            sell_threshold = -min_movement
+        
+        # Paso 3: Etiquetar con sistema híbrido
+        for ret in future_returns:
+            if abs(ret) < min_movement:
+                # Movimiento demasiado pequeño = ruido
+                labels.append(1)  # HOLD
+            elif ret >= buy_threshold:
+                # Movimiento positivo significativo
                 labels.append(2)  # BUY
-            elif max_loss <= loss_threshold and max_gain < abs(loss_threshold) * 0.5:
-                # Probable caída, mejor vender/evitar
+            elif ret <= sell_threshold:
+                # Movimiento negativo significativo
                 labels.append(0)  # SELL
             else:
-                # Zona neutral
+                # Movimiento significativo pero no extremo
                 labels.append(1)  # HOLD
         
         return np.array(labels)
@@ -298,7 +439,7 @@ class NeuralTradingModel:
         self.build_model()
     
     def build_model(self):
-        """Construye arquitectura CNN-LSTM híbrida"""
+        """Construye arquitectura CNN-LSTM híbrida con Attention (OPTIMIZADO)"""
         
         # Input
         inputs = layers.Input(shape=self.input_shape)
@@ -316,11 +457,35 @@ class NeuralTradingModel:
             x = layers.MaxPooling1D(pool_size=2)(x)
         
         # LSTM para dependencias temporales
-        x = layers.LSTM(
-            units=config.LSTM_UNITS,
-            dropout=config.LSTM_DROPOUT,
-            return_sequences=False
-        )(x)
+        if config.USE_ATTENTION:
+            # Con Attention: necesita return_sequences=True
+            lstm_out = layers.LSTM(
+                units=config.LSTM_UNITS,
+                dropout=config.LSTM_DROPOUT,
+                return_sequences=True
+            )(x)
+            
+            # BatchNormalization después de LSTM
+            lstm_out = layers.BatchNormalization()(lstm_out)
+            
+            # Attention Mechanism
+            attention = layers.Dense(1, activation='tanh')(lstm_out)
+            attention = layers.Flatten()(attention)
+            attention = layers.Activation('softmax')(attention)
+            attention = layers.RepeatVector(config.LSTM_UNITS)(attention)
+            attention = layers.Permute([2, 1])(attention)
+            
+            # Apply attention weights
+            x = layers.Multiply()([lstm_out, attention])
+            x = layers.Lambda(lambda xin: tf.reduce_sum(xin, axis=1))(x)
+        else:
+            # Sin Attention: LSTM normal
+            x = layers.LSTM(
+                units=config.LSTM_UNITS,
+                dropout=config.LSTM_DROPOUT,
+                return_sequences=False
+            )(x)
+            x = layers.BatchNormalization()(x)
         
         # Capas densas
         for units in config.DENSE_UNITS:
@@ -339,8 +504,12 @@ class NeuralTradingModel:
             metrics=config.METRICS
         )
         
-        print("✅ Modelo construido:")
+        print("✅ Modelo construido (OPTIMIZADO):")
         print(f"   Input shape: {self.input_shape}")
+        print(f"   CNN filters: {config.CNN_FILTERS}")
+        print(f"   LSTM units: {config.LSTM_UNITS}")
+        print(f"   Attention: {'Enabled' if config.USE_ATTENTION else 'Disabled'}")
+        print(f"   Dense layers: {config.DENSE_UNITS}")
         print(f"   Parámetros: {self.model.count_params():,}")
     
     def get_summary(self):
@@ -390,6 +559,23 @@ class NeuralTradingModel:
                 verbose=1
             )
         ]
+
+        # Learning Rate Schedule (NUEVO)
+        if config.USE_LR_SCHEDULE:
+            from tensorflow.keras.callbacks import ReduceLROnPlateau
+            lr_scheduler = ReduceLROnPlateau(
+                monitor='val_loss' if X_val is not None else 'loss',
+                factor=config.LR_FACTOR,
+                patience=config.LR_PATIENCE,
+                min_lr=config.LR_MIN,
+                verbose=1
+            )
+            callbacks.append(lr_scheduler)
+            print(f"\n📉 Learning Rate Schedule activado:")
+            print(f"   Initial LR: {config.LEARNING_RATE}")
+            print(f"   Factor: {config.LR_FACTOR}")
+            print(f"   Patience: {config.LR_PATIENCE}")
+            print(f"   Min LR: {config.LR_MIN}")
         
         # Validación
         validation_data = None
@@ -549,20 +735,51 @@ class ContinuousLearner:
             print(f"❌ No se pudo cargar scaler v{version}")
             return False
         
-        # Cargar modelo
-        # Necesitamos crear modelo primero (necesita input shape)
-        # Esto es un chicken-egg problem, lo resolveremos cargando datos dummy
-        # En producción, guardaremos también el input_shape
+        X_train, y_train, X_val, y_val = self.prepare_training_data(symbols, timeframe)
         
-        print(f"📂 Cargando modelo v{version}...")
-        return True
+        # Crear modelo
+        input_shape = (X_train.shape[1], X_train.shape[2])  # (lookback, n_features)
+        self.model = NeuralTradingModel(input_shape)
+        
+        # Mostrar resumen
+        self.model.get_summary()
+        
+        # Entrenar
+        history = self.model.train(X_train, y_train, X_val, y_val)
+        
+        # Evaluar
+        accuracy = self.model.evaluate(X_val, y_val)
+        
+        # Guardar
+        self.current_version += 1
+        self.model.save(self.current_version)
+        self.feature_extractor.save_scaler(self.current_version)
+        
+        # Guardar métricas
+        self.save_metrics(self.current_version, {
+            'accuracy': accuracy,
+            'train_samples': len(X_train),
+            'val_samples': len(X_val),
+            'timestamp': datetime.now().isoformat(),
+            'symbols': symbols or config.DEFAULT_SYMBOLS,
+            'timeframe': timeframe
+        })
+        
+        print(f"\n✅ Modelo v{self.current_version} entrenado y guardado")
+        
+        return self.model
     
     def prepare_training_data(self, symbols=None, timeframe='4h'):
         """
-        Prepara datos de entrenamiento desde caché
+        Prepara datos de entrenamiento BALANCEADOS y con SPLIT CORRECTO
+        
+        1. Carga datos de todos los símbolos
+        2. Encuentra el mínimo de muestras para balancear
+        3. Hace split train/val POR SÍMBOLO
+        4. Concatena y mezcla (shuffle)
         
         Args:
-            symbols: Lista de símbolos (usa default si None)
+            symbols: Lista de símbolos
             timeframe: Timeframe
         
         Returns:
@@ -571,66 +788,82 @@ class ContinuousLearner:
         if symbols is None:
             symbols = config.DEFAULT_SYMBOLS
         
-        print(f"\n📊 Preparando datos de entrenamiento...")
+        print(f"\n📊 Preparando datos de entrenamiento BALANCEADOS...")
         print(f"   Símbolos: {symbols}")
-        print(f"   Timeframe: {timeframe}")
         
-        all_X = []
-        all_y = []
+        symbol_data = {}
+        min_samples = float('inf')
         
-        for symbol in symbols:
+        # 1. Cargar y procesar todos los símbolos
+        for i, symbol in enumerate(symbols):
             print(f"\n  Procesando {symbol}...")
             
-            # Cargar datos del caché
             df = self.cache.get_data(symbol, timeframe)
-            
             if df is None or len(df) < config.MIN_TRAIN_SAMPLES:
-                print(f"    ⚠️ Datos insuficientes ({len(df) if df is not None else 0} velas)")
+                print(f"    ⚠️ Datos insuficientes")
                 continue
             
-            print(f"    ✅ {len(df)} velas cargadas")
-            
-            # Etiquetar datos
+            # Etiquetar
             y = DataLabeler.label_data(df)
             
-            # Extraer features (fit solo en el primer símbolo)
-            fit_scaler = len(all_X) == 0
+            # Extraer features (fit scaler solo en el primer símbolo)
+            # Esto asume que el primer símbolo (ej. ETH) es representativo para normalización
+            fit_scaler = (i == 0)
             X = self.feature_extractor.extract_features(df, fit_scaler=fit_scaler)
             
             # Crear secuencias
             X_seq, y_seq = self.feature_extractor.create_sequences(X, y)
             
-            print(f"    ✅ {len(X_seq)} secuencias creadas")
+            print(f"    ✅ {len(X_seq)} secuencias generadas")
             
-            all_X.append(X_seq)
-            all_y.append(y_seq)
+            symbol_data[symbol] = (X_seq, y_seq)
+            min_samples = min(min_samples, len(X_seq))
         
-        # Concatenar todos los datos
-        X_all = np.concatenate(all_X, axis=0)
-        y_all = np.concatenate(all_y, axis=0)
+        if not symbol_data:
+            raise ValueError("No se pudieron cargar datos de ningún símbolo")
+            
+        print(f"\n⚖️ Balanceando a {min_samples} muestras por par (undersampling)")
         
-        print(f"\n✅ Total: {len(X_all)} muestras")
-        print(f"   Shape: {X_all.shape}")
+        X_train_list, y_train_list = [], []
+        X_val_list, y_val_list = [], []
         
-        # Distribución de clases
-        unique, counts = np.unique(y_all, return_counts=True)
-        print(f"\n📊 Distribución de clases:")
-        for label, count in zip(unique, counts):
-            signal = config.CLASS_LABELS[label]
-            pct = count / len(y_all) * 100
-            print(f"   {signal}: {count} ({pct:.1f}%)")
+        # 2. Balancear y Split por símbolo
+        for symbol, (X, y) in symbol_data.items():
+            # Tomar los ÚLTIMOS min_samples para usar datos más recientes
+            X_bal = X[-min_samples:]
+            y_bal = y[-min_samples:]
+            
+            # Split Train/Val
+            split_idx = int(len(X_bal) * (1 - config.VALIDATION_SPLIT))
+            
+            X_train_sym = X_bal[:split_idx]
+            y_train_sym = y_bal[:split_idx]
+            X_val_sym = X_bal[split_idx:]
+            y_val_sym = y_bal[split_idx:]
+            
+            X_train_list.append(X_train_sym)
+            y_train_list.append(y_train_sym)
+            X_val_list.append(X_val_sym)
+            y_val_list.append(y_val_sym)
+            
+            print(f"  {symbol}: Train {len(X_train_sym)} | Val {len(X_val_sym)}")
+            
+        # 3. Concatenar
+        X_train = np.concatenate(X_train_list, axis=0)
+        y_train = np.concatenate(y_train_list, axis=0)
+        X_val = np.concatenate(X_val_list, axis=0)
+        y_val = np.concatenate(y_val_list, axis=0)
         
-        # Split train/val
-        split_idx = int(len(X_all) * (1 - config.VALIDATION_SPLIT))
+        # 4. Shuffle (Solo Train)
+        indices = np.arange(len(X_train))
+        np.random.shuffle(indices)
+        X_train = X_train[indices]
+        y_train = y_train[indices]
         
-        X_train = X_all[:split_idx]
-        y_train = y_all[:split_idx]
-        X_val = X_all[split_idx:]
-        y_val = y_all[split_idx:]
-        
-        print(f"\n✅ Split completado:")
-        print(f"   Train: {len(X_train)} muestras")
-        print(f"   Val: {len(X_val)} muestras")
+        print(f"\n✅ Dataset Final Preparado:")
+        print(f"   Train: {len(X_train)} muestras (Mezclado)")
+        print(f"   Val:   {len(X_val)} muestras (Ordenado por par)")
+        print(f"   Shape: {X_train.shape}")
         
         return X_train, y_train, X_val, y_val
     
@@ -674,8 +907,6 @@ class ContinuousLearner:
         print(f"\n✅ Modelo v{self.current_version} entrenado y guardado")
         
         return self.model
-    
-    def save_metrics(self, version, metrics):
         """Guarda métricas de un modelo"""
         path = Path(config.MODELS_DIR) / config.METRICS_NAME_FORMAT.format(version=version)
         with open(path, 'w') as f:

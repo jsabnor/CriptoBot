@@ -1,13 +1,11 @@
 {
-  "accuracy": 0.29252021034455694,
-  "train_samples": 50964,
-  "val_samples": 12741,
-  "timestamp": "2025-11-26T21:47:44.086800",
+  "accuracy": 0.34585635359116024,
+  "train_samples": 28960,
+  "val_samples": 7240,
+  "timestamp": "2025-12-02T11:33:10.326440",
   "symbols": [
-    "ETH/USDT",
-    "SOL/USDT",
-    "BNB/USDT",
-    "XRP/USDT"
+    "BTC/USDT",
+    "ETH/USDT"
   ],
   "timeframe": "4h"
 }

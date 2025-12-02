@@ -1,0 +1,15 @@
+{
+  "symbols": [
+    "SOL/USDT",
+    "AVAX/USDT",
+    "MATIC/USDT",
+    "DOGE/USDT"
+  ],
+  "timeframe": "4h",
+  "description": "Model trained on SOL/USDT, AVAX/USDT, MATIC/USDT, DOGE/USDT",
+  "accuracy": null,
+  "name": "SOL_GROUP_4h",
+  "saved_at": "2025-12-02T11:08:09.574962",
+  "model_file": "models\\SOL_GROUP_4h\\model.keras",
+  "scaler_file": "models\\SOL_GROUP_4h\\scaler.pkl"
+}

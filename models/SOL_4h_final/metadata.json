@@ -1,0 +1,12 @@
+{
+  "symbols": [
+    "SOL/USDT"
+  ],
+  "timeframe": "4h",
+  "description": "Model trained on SOL/USDT",
+  "accuracy": null,
+  "name": "SOL_4h_final",
+  "saved_at": "2025-12-02T10:35:53.134803",
+  "model_file": "models\\SOL_4h_final\\model.keras",
+  "scaler_file": "models\\SOL_4h_final\\scaler.pkl"
+}

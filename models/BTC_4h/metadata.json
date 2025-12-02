@@ -1,0 +1,13 @@
+{
+  "symbols": [
+    "BTC/USDT",
+    "ETH/USDT"
+  ],
+  "timeframe": "4h",
+  "description": "Model trained on BTC/USDT, ETH/USDT",
+  "accuracy": null,
+  "name": "BTC_4h",
+  "saved_at": "2025-12-02T11:33:10.433849",
+  "model_file": "models\\BTC_4h\\model.keras",
+  "scaler_file": "models\\BTC_4h\\scaler.pkl"
+}

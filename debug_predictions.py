@@ -2,7 +2,7 @@
 Debug script para ver qué está prediciendo el modelo
 """
 import numpy as np
-from neural_strategy import NeuralStrategy
+from neural_bot import NeuralStrategy
 from data_cache import DataCache
 
 # Cargar estrategia
