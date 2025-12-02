@@ -24,13 +24,14 @@ import config
 # ============================================================================
 
 class NeuralBot:
-    def __init__(self, mode=None, model_name=None):
+    def __init__(self, mode=None, model_name=None, bot_id=None):
         """
         Inicializa el bot de trading neuronal.
         
         Args:
             mode: Modo de operación (paper/live)
             model_name: Nombre del modelo a cargar (None = usar default)
+            bot_id: Identificador único del bot (ej: BTC, ETH)
         """
         # Cargar credenciales
         self.API_KEY = config.API_KEY
@@ -42,6 +43,7 @@ class NeuralBot:
         # Configuración
         self.MODE = mode if mode else config.TRADING_MODE
         self.TIMEFRAME = config.TIMEFRAME
+        self.BOT_ID = bot_id if bot_id else "neural"
         # Override: Bot Neural usa solo top 3 performers (basado en backtest)
         self.SYMBOLS = ['SOL/USDT', 'ETH/USDT', 'XRP/USDT']
         self.CAPITAL_PER_PAIR = config.CAPITAL_PER_PAIR
@@ -53,9 +55,9 @@ class NeuralBot:
         self.trades_log = []
         self.last_summary_date = None
         
-        # Archivos de estado
-        self.STATE_FILE = 'bot_state_neural.json'
-        self.TRADES_FILE = 'trades_neural.csv'
+        # Archivos de estado DINÁMICOS
+        self.STATE_FILE = f'bot_state_neural_{self.BOT_ID}.json'
+        self.TRADES_FILE = f'trades_neural_{self.BOT_ID}.csv'
         
         # Inicializar equity
         for symbol in self.SYMBOLS:
@@ -75,7 +77,7 @@ class NeuralBot:
         self.data_cache = DataCache()
         
         # Estrategia Neuronal
-        print("🧠 Cargando estrategia neuronal...")
+        print(f"🧠 [{self.BOT_ID}] Cargando estrategia neuronal...", flush=True)
         if model_name:
             print(f"   Modelo especificado: {model_name}")
         self.strategy = NeuralStrategy(model_name=model_name)
@@ -87,7 +89,7 @@ class NeuralBot:
         self.load_state()
         
         print(f"\n{'='*70}")
-        print(f"BOT NEURAL - MODO: {self.MODE.upper()}")
+        print(f"BOT NEURAL [{self.BOT_ID}] - MODO: {self.MODE.upper()}")
         print(f"{'='*70}")
         print(f"Timeframe: {self.TIMEFRAME}")
         print(f"Pares: {len(self.SYMBOLS)}")
@@ -96,7 +98,7 @@ class NeuralBot:
         print(f"{'='*70}\n")
         
         if self.telegram.enabled:
-            self.telegram.notify_startup(self.MODE, self.SYMBOLS, self.TOTAL_CAPITAL, strategy_name="NEURAL")
+            self.telegram.notify_startup(self.MODE, self.SYMBOLS, self.TOTAL_CAPITAL, strategy_name=f"NEURAL-{self.BOT_ID}")
 
     def load_state(self):
         """Carga el estado del bot desde JSON."""
@@ -261,7 +263,7 @@ class NeuralBot:
 
     def run_analysis(self):
         """Ejecuta análisis de mercado."""
-        print(f"\n🔍 Analizando mercado {datetime.now().strftime('%H:%M:%S')}...")
+        print(f"\n🔍 [{self.BOT_ID}] Analizando mercado {datetime.now().strftime('%H:%M:%S')}...", flush=True)
         
         for symbol in self.SYMBOLS:
             try:
@@ -306,7 +308,7 @@ class NeuralBot:
 
     def run_continuous(self):
         """Bucle principal de ejecución."""
-        print("🚀 Iniciando bucle continuo...")
+        print(f"🚀 [{self.BOT_ID}] Iniciando bucle continuo...", flush=True)
         
         while True:
             try:
@@ -342,13 +344,21 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='Neural Trading Bot')
     parser.add_argument('--mode', type=str, choices=['paper', 'live'], help='Trading mode')
     parser.add_argument('--model', type=str, help='Model name to load')
+    parser.add_argument('--id', type=str, help='Unique Bot ID (e.g. BTC, ETH)', required=True)
+    parser.add_argument('--symbols', type=str, help='Comma separated symbols (e.g. BTC/USDT)')
     args = parser.parse_args()
     
     try:
         # Obtener model_name de argumentos o variable de entorno
         model_name = args.model or os.getenv('NEURAL_MODEL')
         
-        bot = NeuralBot(mode=args.mode, model_name=model_name)
+        bot = NeuralBot(mode=args.mode, model_name=model_name, bot_id=args.id)
+        
+        # Override symbols if provided
+        if args.symbols:
+            bot.SYMBOLS = [s.strip() for s in args.symbols.split(',')]
+            print(f"ℹ️  Sobreescribiendo símbolos: {bot.SYMBOLS}")
+            
         bot.run_continuous()
     except Exception as e:
         print(f"❌ Error fatal: {e}")
