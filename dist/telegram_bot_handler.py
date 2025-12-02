@@ -1,24 +1,24 @@
 #!/usr/bin/env python3
 """
-Bot de Telegram Interactivo para Consultas de Trading (Dinámico)
+Bot de Telegram Interactivo para Consultas de Trading
 
-Permite consultar el estado de los bots neuronales activos.
-Descubre automáticamente los bots buscando archivos 'bot_state_neural_{ID}.json'.
+Permite consultar el estado de los bots ADX, EMA y Neural mediante comandos.
+Incluye reportes detallados de rendimiento y gestión de posiciones.
 """
 
 import os
 import json
 import pandas as pd
-import glob
-from datetime import datetime
+from datetime import datetime, timedelta
 from dotenv import load_dotenv
 import requests
 import time
 
 load_dotenv()
 
+
 class TelegramBotHandler:
-    """Manejador de comandos interactivos de Telegram (Multi-Instancia Dinámico)"""
+    """Manejador de comandos interactivos de Telegram"""
     
     def __init__(self):
         """Inicializa el bot de comandos"""
@@ -31,12 +31,8 @@ class TelegramBotHandler:
         self.api_url = f"https://api.telegram.org/bot{self.token}"
         self.last_update_id = 0
         
-        print("🤖 Bot de Telegram Interactivo iniciado (Modo Dinámico)")
+        print("🤖 Bot de Telegram Interactivo iniciado")
         print(f"✅ Usuarios autorizados: {len(self.authorized_users)}")
-        
-        # Descubrir bots iniciales
-        self.active_bots = self.discover_bots()
-        print(f"🔍 Bots detectados: {self.active_bots}")
     
     def _load_authorized_users(self):
         """Carga lista de usuarios autorizados"""
@@ -54,25 +50,6 @@ class TelegramBotHandler:
         """Verifica si el usuario está autorizado"""
         return str(chat_id) in self.authorized_users
     
-    def discover_bots(self):
-        """
-        Escanea el directorio actual en busca de archivos de estado.
-        Retorna una lista de IDs de bots (ej: ['BTC', 'ETH', 'SOL']).
-        """
-        # Patrón: bot_state_neural_{ID}.json
-        files = glob.glob("bot_state_neural_*.json")
-        bot_ids = []
-        for f in files:
-            # Extraer ID: bot_state_neural_BTC.json -> BTC
-            try:
-                # Remove prefix and suffix
-                base = f.replace("bot_state_neural_", "").replace(".json", "")
-                if base:
-                    bot_ids.append(base)
-            except:
-                pass
-        return sorted(bot_ids)
-
     def send_message(self, chat_id, text, reply_markup=None):
         """Envía un mensaje a un chat específico"""
         try:
@@ -111,24 +88,19 @@ class TelegramBotHandler:
         }
 
     def get_reports_keyboard(self):
-        """Genera el teclado de selección de reportes dinámicamente"""
-        # Actualizar lista de bots
-        self.active_bots = self.discover_bots()
-        
-        keyboard = []
-        row = []
-        for bot_id in self.active_bots:
-            row.append({'text': f'🤖 {bot_id}', 'callback_data': f'report_{bot_id}'})
-            if len(row) == 2:
-                keyboard.append(row)
-                row = []
-        
-        if row:
-            keyboard.append(row)
-            
-        keyboard.append([{'text': '🔙 Volver al Menú', 'callback_data': 'main_menu'}])
-        
-        return {'inline_keyboard': keyboard}
+        """Genera el teclado de selección de reportes"""
+        return {
+            'inline_keyboard': [
+                [
+                    {'text': '🤖 Reporte ADX', 'callback_data': 'report_adx'},
+                    {'text': '📉 Reporte EMA', 'callback_data': 'report_ema'}
+                ],
+                [
+                    {'text': '🧠 Reporte Neural', 'callback_data': 'report_neural'},
+                    {'text': '🔙 Volver al Menú', 'callback_data': 'main_menu'}
+                ]
+            ]
+        }
     
     def get_back_keyboard(self, menu='main'):
         """Genera botón de volver"""
@@ -137,34 +109,49 @@ class TelegramBotHandler:
             'inline_keyboard': [[{'text': '🔙 Volver', 'callback_data': callback}]]
         }
 
-    def get_bot_state(self, bot_id):
+    def get_bot_state(self, bot_name='adx'):
         """Lee el estado de un bot desde su archivo JSON"""
         try:
-            filename = f"bot_state_neural_{bot_id}.json"
+            file_map = {
+                'adx': 'bot_state.json',
+                'ema': 'bot_state_ema.json',
+                'neural': 'bot_state_neural.json'
+            }
+            
+            filename = file_map.get(bot_name, 'bot_state.json')
+            
             if not os.path.exists(filename):
                 return None
             
             with open(filename, 'r') as f:
                 return json.load(f)
         except Exception as e:
-            print(f"❌ Error leyendo estado de {bot_id}: {e}")
+            print(f"❌ Error leyendo estado de {bot_name}: {e}")
             return None
     
-    def get_trades_df(self, bot_id):
+    def get_trades_df(self, bot_name='adx'):
         """Lee el DataFrame de trades de un bot"""
         try:
-            filename = f"trades_neural_{bot_id}.csv"
+            file_map = {
+                'adx': 'trades_production.csv',
+                'ema': 'trades_ema.csv',
+                'neural': 'trades_neural.csv'
+            }
+            
+            filename = file_map.get(bot_name, 'trades_production.csv')
+            
             if not os.path.exists(filename):
                 return None
             
             df = pd.read_csv(filename)
+            # Intentar parsear timestamp con manejo de errores
             try:
                 df['timestamp'] = pd.to_datetime(df['timestamp'])
             except:
                 pass
             return df
         except Exception as e:
-            print(f"❌ Error leyendo historial de {bot_id}: {e}")
+            print(f"❌ Error leyendo historial de {bot_name}: {e}")
             return None
     
     def get_current_price(self, symbol):
@@ -194,7 +181,7 @@ class TelegramBotHandler:
             if position:
                 current_price = self.get_current_price(symbol)
                 if current_price:
-                    qty = position.get('qty', 0)
+                    qty = position.get('size', position.get('qty', 0))
                     if qty > 0:
                         positions_value += qty * current_price
         
@@ -204,11 +191,11 @@ class TelegramBotHandler:
     def cmd_start(self, chat_id):
         """Comando /start - Menú principal"""
         text = (
-            "🤖 <b>Bot de Trading Neural - Panel de Control</b>\n\n"
+            "🤖 <b>Bot de Trading - Panel de Control</b>\n\n"
             "Selecciona una opción:\n\n"
-            "• <b>Posiciones Abiertas</b>: Ver operaciones en curso.\n"
-            "• <b>Reportes y Ganancias</b>: Historial por bot (BTC, ETH, SOL...).\n"
-            "• <b>Estado del Sistema</b>: Salud y capital total."
+            "• <b>Posiciones Abiertas</b>: Ver operaciones en curso y P&L flotante.\n"
+            "• <b>Reportes y Ganancias</b>: Historial detallado y beneficios por bot/par.\n"
+            "• <b>Estado del Sistema</b>: Salud y capital total de los bots."
         )
         self.send_message(chat_id, text, self.get_main_keyboard())
     
@@ -216,39 +203,36 @@ class TelegramBotHandler:
         """Comando /help - Ayuda"""
         text = (
             "📚 <b>Ayuda</b>\n\n"
+            "Usa los botones del menú para navegar.\n\n"
             "<b>Comandos disponibles:</b>\n"
             "/start - Menú principal\n"
             "/posiciones - Ver operaciones abiertas\n"
             "/status - Estado general\n"
-            "/reporte [ID] - Reporte rápido (ej: /reporte BTC)"
+            "/reporte [adx|ema|neural] - Reporte rápido"
         )
         self.send_message(chat_id, text, self.get_main_keyboard())
     
     def cmd_status(self, chat_id):
         """Comando /status - Estado de los bots"""
-        self.active_bots = self.discover_bots() # Refrescar lista
-        
         text = "⚙️ <b>ESTADO DEL SISTEMA</b>\n\n"
+        
         total_combined = 0
         
-        if not self.active_bots:
-            text += "⚠️ No se detectaron bots activos.\n"
-        
-        for bot_id in self.active_bots:
-            state = self.get_bot_state(bot_id)
+        for bot_name, label in [('adx', '🤖 ADX'), ('ema', '📉 EMA'), ('neural', '🧠 Neural')]:
+            state = self.get_bot_state(bot_name)
             if state:
                 equity, _, _ = self.calculate_total_equity(state)
                 total_combined += equity
                 
-                last_update = state.get('timestamp', 'N/A')
+                last_update = state.get('timestamp', state.get('last_update', state.get('last_summary_date', 'N/A')))
                 if isinstance(last_update, str):
                     last_update = last_update.split('T')[0]
                 
-                text += f"<b>🤖 {bot_id}</b>: ✅ Activo\n"
+                text += f"<b>{label}</b>: ✅ Activo\n"
                 text += f"  💰 Equity: ${equity:.2f}\n"
                 text += f"  📅 Update: {last_update}\n\n"
             else:
-                text += f"<b>🤖 {bot_id}</b>: ⚠️ Sin datos\n\n"
+                text += f"<b>{label}</b>: ❌ Inactivo/Sin datos\n\n"
         
         text += f"━━━━━━━━━━━━━━━━\n"
         text += f"💼 <b>CAPITAL TOTAL: ${total_combined:.2f}</b>"
@@ -256,28 +240,29 @@ class TelegramBotHandler:
         self.send_message(chat_id, text, self.get_main_keyboard())
     
     def cmd_positions(self, chat_id):
-        """Comando /posiciones - Muestra posiciones abiertas"""
-        self.active_bots = self.discover_bots()
-        
+        """Comando /posiciones - Muestra posiciones abiertas con cálculos"""
         text = "💼 <b>POSICIONES ABIERTAS</b>\n"
         has_positions = False
         
-        for bot_id in self.active_bots:
-            state = self.get_bot_state(bot_id)
+        for bot_name, label in [('adx', '🤖 ADX'), ('ema', '📉 EMA'), ('neural', '🧠 Neural')]:
+            state = self.get_bot_state(bot_name)
             if not state:
                 continue
                 
             positions = state.get('positions', {})
             bot_has_pos = False
-            bot_text = f"\n<b>🤖 {bot_id}:</b>\n"
+            
+            bot_text = f"\n<b>{label}:</b>\n"
             
             for symbol, pos in positions.items():
                 if pos:
                     has_positions = True
                     bot_has_pos = True
                     
+                    # Normalizar datos (diferentes formatos según bot)
                     entry_price = pos.get('entry_price', 0)
-                    qty = pos.get('qty', 0)
+                    qty = pos.get('size', pos.get('qty', 0))
+                    
                     current_price = self.get_current_price(symbol)
                     
                     sym_clean = symbol.replace('/USDT', '')
@@ -304,20 +289,27 @@ class TelegramBotHandler:
 
     def cmd_reports_menu(self, chat_id):
         """Muestra menú de selección de reportes"""
-        text = "📊 <b>REPORTES Y GANANCIAS</b>\n\nSelecciona el bot:"
+        text = "📊 <b>REPORTES Y GANANCIAS</b>\n\nSelecciona el bot para ver su historial detallado y beneficios:"
         self.send_message(chat_id, text, self.get_reports_keyboard())
 
-    def generate_bot_report(self, bot_id):
+    def generate_bot_report(self, bot_name):
         """Genera reporte detallado para un bot"""
-        df = self.get_trades_df(bot_id)
+        df = self.get_trades_df(bot_name)
         
-        label = f"🤖 Bot {bot_id}"
+        label_map = {'adx': '🤖 ADX Bot', 'ema': '📉 EMA Bot', 'neural': '🧠 Neural Bot'}
+        label = label_map.get(bot_name, bot_name.upper())
         
         if df is None or df.empty:
             return f"<b>{label}</b>\n\n❌ No hay historial de operaciones registrado."
         
-        # Filtrar solo ventas/cierres (type='SELL')
-        if 'type' in df.columns:
+        # Normalizar columnas
+        # ADX/EMA usan 'pnl', Neural usa 'pnl' (pero a veces 'profit' en backtest, aquí es prod)
+        # Neural usa 'type'='SELL' para cierres. ADX 'type'='sell'. EMA 'side'='sell'.
+        
+        # Filtrar solo ventas/cierres (donde se realiza el PnL)
+        if 'side' in df.columns: # EMA
+            closed_trades = df[df['side'] == 'sell']
+        elif 'type' in df.columns: # ADX y Neural
             closed_trades = df[df['type'].str.upper() == 'SELL']
         else:
             closed_trades = pd.DataFrame()
@@ -339,6 +331,7 @@ class TelegramBotHandler:
         
         text += f"<b>📊 DESGLOSE POR PAR:</b>\n"
         
+        # Agrupar por símbolo
         grouped = closed_trades.groupby('symbol')
         
         for symbol, group in grouped:
@@ -353,15 +346,16 @@ class TelegramBotHandler:
             text += f"\n🪙 <b>{sym_clean}</b>: {emoji} <b>${sym_pnl:+.2f}</b>\n"
             text += f"   └ Trades: {sym_trades} (WR: {sym_wr:.0f}%)\n"
             
+            # Última operación del par
             last_trade = group.iloc[-1]
             last_date = last_trade['timestamp'].strftime('%d/%m')
             text += f"   └ Última: {last_date} (${last_trade['pnl']:+.2f})\n"
 
         return text
 
-    def cmd_bot_report(self, chat_id, bot_id):
+    def cmd_bot_report(self, chat_id, bot_name):
         """Envía el reporte de un bot específico"""
-        text = self.generate_bot_report(bot_id)
+        text = self.generate_bot_report(bot_name)
         self.send_message(chat_id, text, self.get_back_keyboard('reports'))
 
     def handle_callback_query(self, callback_query):
@@ -369,6 +363,7 @@ class TelegramBotHandler:
         chat_id = callback_query['message']['chat']['id']
         data = callback_query['data']
         
+        # Mapeo de callbacks
         if data == 'main_menu':
             self.cmd_start(chat_id)
         elif data == 'status':
@@ -380,9 +375,10 @@ class TelegramBotHandler:
         elif data == 'reports_menu':
             self.cmd_reports_menu(chat_id)
         elif data.startswith('report_'):
-            bot_id = data.split('_')[1]
-            self.cmd_bot_report(chat_id, bot_id)
+            bot_name = data.split('_')[1]
+            self.cmd_bot_report(chat_id, bot_name)
         
+        # Responder al callback
         try:
             requests.post(
                 f"{self.api_url}/answerCallbackQuery",
@@ -402,10 +398,7 @@ class TelegramBotHandler:
             return
         
         if text.startswith('/'):
-            # Limpiar comando (ej: /status@MiBot -> /status)
-            full_cmd = text.split()[0].lower()
-            cmd = full_cmd.split('@')[0]
-            
+            cmd = text.split()[0].lower()
             if cmd == '/start': self.cmd_start(chat_id)
             elif cmd == '/help': self.cmd_help(chat_id)
             elif cmd == '/status': self.cmd_status(chat_id)
@@ -413,14 +406,11 @@ class TelegramBotHandler:
             elif cmd.startswith('/reporte'):
                 parts = text.split()
                 if len(parts) > 1:
-                    self.cmd_bot_report(chat_id, parts[1].upper())
+                    self.cmd_bot_report(chat_id, parts[1].lower())
                 else:
                     self.cmd_reports_menu(chat_id)
             else:
-                # En grupos/canales, ignorar comandos desconocidos para no hacer spam
-                # Solo responder si es privado o si el comando iba dirigido explícitamente al bot (opcional)
-                if message['chat']['type'] == 'private':
-                    self.send_message(chat_id, "❌ Comando desconocido")
+                self.send_message(chat_id, "❌ Comando desconocido")
 
     def get_updates(self):
         """Obtiene actualizaciones pendientes"""

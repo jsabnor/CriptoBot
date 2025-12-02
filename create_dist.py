@@ -59,33 +59,18 @@ def create_dist():
     models_dest_dir = os.path.join(dist_dir, 'models')
     os.makedirs(models_dest_dir, exist_ok=True)
     
-    # Copy scaler.pkl if it exists in root models (legacy support or base scaler)
-    base_scaler = os.path.join('models', 'scaler.pkl')
-    if os.path.exists(base_scaler):
-        shutil.copy2(base_scaler, os.path.join(models_dest_dir, 'scaler.pkl'))
-
     for model_name in models_to_copy:
         src_path = os.path.join('models', model_name)
         dst_path = os.path.join(models_dest_dir, model_name)
-        if os.path.exists(src_path):
-            # Copy directory
-            if os.path.isdir(src_path):
-                shutil.copytree(src_path, dst_path)
-            # Or file if it's a single file model (unlikely for our structure but good safety)
-            else:
-                shutil.copy2(src_path, dst_path)
-            print(f"  - {model_name}")
+        if os.path.exists(src_path) and os.path.isdir(src_path):
+            # Copy entire directory (includes model.keras, scaler.pkl, metadata.json)
+            shutil.copytree(src_path, dst_path)
+            print(f"  - {model_name} (completo)")
         else:
-            # Check for .keras file directly if folder doesn't exist
-            src_keras = os.path.join('models', f"{model_name}.keras")
-            if os.path.exists(src_keras):
-                 shutil.copy2(src_keras, os.path.join(models_dest_dir, f"{model_name}.keras"))
-                 print(f"  - {model_name}.keras")
-            else:
-                print(f"  ⚠️ Warning: Model {model_name} not found")
+            print(f"  ⚠️ Warning: Model {model_name} not found")
 
     print(f"\n✨ Distribution package created in '{dist_dir}/'")
-    print("   Next steps: Modify files inside 'dist/' for multi-instance support.")
+    print("   Next steps: Deploy to VPS and restart bots.")
 
 if __name__ == "__main__":
     create_dist()

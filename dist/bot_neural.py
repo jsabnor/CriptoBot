@@ -24,14 +24,13 @@ import config
 # ============================================================================
 
 class NeuralBot:
-    def __init__(self, mode=None, model_name=None, bot_id=None):
+    def __init__(self, mode=None, model_name=None):
         """
         Inicializa el bot de trading neuronal.
         
         Args:
             mode: Modo de operación (paper/live)
             model_name: Nombre del modelo a cargar (None = usar default)
-            bot_id: Identificador único del bot (ej: BTC, ETH) para archivos de estado
         """
         # Cargar credenciales
         self.API_KEY = config.API_KEY
@@ -43,13 +42,8 @@ class NeuralBot:
         # Configuración
         self.MODE = mode if mode else config.TRADING_MODE
         self.TIMEFRAME = config.TIMEFRAME
-        self.BOT_ID = bot_id if bot_id else "neural"
-        
         # Override: Bot Neural usa solo top 3 performers (basado en backtest)
-        # Si se especifica un modelo, intentamos deducir el símbolo o usamos el config
-        # Pero para multi-instancia, el usuario debería pasar --symbols
-        # Aquí mantenemos la lista por defecto pero se sobreescribirá si se pasa --symbols en main
-        self.SYMBOLS = ['SOL/USDT', 'ETH/USDT', 'XRP/USDT'] 
+        self.SYMBOLS = ['SOL/USDT', 'ETH/USDT', 'XRP/USDT']
         self.CAPITAL_PER_PAIR = config.CAPITAL_PER_PAIR
         self.TOTAL_CAPITAL = self.CAPITAL_PER_PAIR * len(self.SYMBOLS)
         
@@ -59,9 +53,9 @@ class NeuralBot:
         self.trades_log = []
         self.last_summary_date = None
         
-        # Archivos de estado DINÁMICOS
-        self.STATE_FILE = f'bot_state_neural_{self.BOT_ID}.json'
-        self.TRADES_FILE = f'trades_neural_{self.BOT_ID}.csv'
+        # Archivos de estado
+        self.STATE_FILE = 'bot_state_neural.json'
+        self.TRADES_FILE = 'trades_neural.csv'
         
         # Inicializar equity
         for symbol in self.SYMBOLS:
@@ -81,7 +75,7 @@ class NeuralBot:
         self.data_cache = DataCache()
         
         # Estrategia Neuronal
-        print(f"🧠 [{self.BOT_ID}] Cargando estrategia neuronal...")
+        print("🧠 Cargando estrategia neuronal...")
         if model_name:
             print(f"   Modelo especificado: {model_name}")
         self.strategy = NeuralStrategy(model_name=model_name)
@@ -93,17 +87,16 @@ class NeuralBot:
         self.load_state()
         
         print(f"\n{'='*70}")
-        print(f"BOT NEURAL [{self.BOT_ID}] - MODO: {self.MODE.upper()}")
+        print(f"BOT NEURAL - MODO: {self.MODE.upper()}")
         print(f"{'='*70}")
         print(f"Timeframe: {self.TIMEFRAME}")
         print(f"Pares: {len(self.SYMBOLS)}")
         print(f"Modelo cargado: v{self.strategy.version if self.strategy.model else 'Ninguno'}")
         print(f"Telegram: {'✓ Habilitado' if self.telegram.enabled else '✗ Deshabilitado'}")
-        print(f"Estado: {self.STATE_FILE}")
         print(f"{'='*70}\n")
         
         if self.telegram.enabled:
-            self.telegram.notify_startup(self.MODE, self.SYMBOLS, self.TOTAL_CAPITAL, strategy_name=f"NEURAL-{self.BOT_ID}")
+            self.telegram.notify_startup(self.MODE, self.SYMBOLS, self.TOTAL_CAPITAL, strategy_name="NEURAL")
 
     def load_state(self):
         """Carga el estado del bot desde JSON."""
@@ -124,8 +117,7 @@ class NeuralBot:
             'timestamp': datetime.now().isoformat(),
             'equity': self.equity,
             'positions': self.positions,
-            'last_summary_date': self.last_summary_date,
-            'bot_id': self.BOT_ID
+            'last_summary_date': self.last_summary_date
         }
         try:
             with open(self.STATE_FILE, 'w') as f:
@@ -153,7 +145,7 @@ class NeuralBot:
 
     def execute_buy(self, symbol, price, signal_data):
         """Ejecuta orden de compra basada en señal neuronal."""
-        capital = self.equity.get(symbol, 0) # Use get to avoid key error if symbol not in equity
+        capital = self.equity[symbol]
         if capital < config.MIN_EQUITY:
             print(f"⚠️ Capital insuficiente en {symbol}: ${capital:.2f}")
             return False
@@ -205,14 +197,14 @@ class NeuralBot:
         if self.telegram.enabled:
             self.telegram.notify_buy(
                 symbol, actual_price, qty, cost, sl_price, 0, 
-                strategy_name=f"NEURAL-{self.BOT_ID} (Conf: {signal_data['confidence']:.2f})"
+                strategy_name=f"NEURAL (Conf: {signal_data['confidence']:.2f})"
             )
             
         return True
 
     def execute_sell(self, symbol, price, reason="SIGNAL"):
         """Ejecuta orden de venta."""
-        pos = self.positions.get(symbol)
+        pos = self.positions[symbol]
         if not pos:
             return False
             
@@ -262,14 +254,14 @@ class NeuralBot:
         if self.telegram.enabled:
             self.telegram.notify_sell(
                 symbol, actual_price, qty, revenue, pnl, pnl_percent, 
-                reason, strategy_name=f"NEURAL-{self.BOT_ID}"
+                reason, strategy_name="NEURAL"
             )
             
         return True
 
     def run_analysis(self):
         """Ejecuta análisis de mercado."""
-        print(f"\n🔍 [{self.BOT_ID}] Analizando mercado {datetime.now().strftime('%H:%M:%S')}...")
+        print(f"\n🔍 Analizando mercado {datetime.now().strftime('%H:%M:%S')}...")
         
         for symbol in self.SYMBOLS:
             try:
@@ -285,7 +277,7 @@ class NeuralBot:
                     
                 print(f"  {symbol}: {signal} (Conf: {confidence:.2f}) - Precio: ${current_price:.2f}")
                 
-                pos = self.positions.get(symbol)
+                pos = self.positions[symbol]
                 
                 # Lógica de Trading
                 if pos:
@@ -314,7 +306,7 @@ class NeuralBot:
 
     def run_continuous(self):
         """Bucle principal de ejecución."""
-        print(f"🚀 [{self.BOT_ID}] Iniciando bucle continuo...", flush=True)
+        print("🚀 Iniciando bucle continuo...")
         
         while True:
             try:
@@ -334,11 +326,11 @@ class NeuralBot:
                 
                 # Esperar 1 minuto antes de siguiente chequeo (para no saturar)
                 # En producción real, esto debería esperar al cierre de vela
-                print("⏳ Esperando 60s...", flush=True)
+                print("⏳ Esperando 60s...")
                 time.sleep(60)
                 
             except KeyboardInterrupt:
-                print(f"\n🛑 Deteniendo bot {self.BOT_ID}...")
+                print("\n🛑 Deteniendo bot...")
                 break
             except Exception as e:
                 print(f"❌ Error en bucle principal: {e}")
@@ -350,22 +342,13 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='Neural Trading Bot')
     parser.add_argument('--mode', type=str, choices=['paper', 'live'], help='Trading mode')
     parser.add_argument('--model', type=str, help='Model name to load')
-    parser.add_argument('--id', type=str, help='Unique Bot ID (e.g. BTC, ETH)', required=True)
-    parser.add_argument('--symbols', type=str, help='Comma separated symbols (e.g. BTC/USDT)')
     args = parser.parse_args()
     
     try:
         # Obtener model_name de argumentos o variable de entorno
         model_name = args.model or os.getenv('NEURAL_MODEL')
         
-        bot = NeuralBot(mode=args.mode, model_name=model_name, bot_id=args.id)
-        
-        # Override symbols if provided
-        if args.symbols:
-            bot.SYMBOLS = [s.strip() for s in args.symbols.split(',')]
-            # Recalculate capital per pair if needed, or just warn
-            print(f"ℹ️ Sobreescribiendo símbolos: {bot.SYMBOLS}")
-            
+        bot = NeuralBot(mode=args.mode, model_name=model_name)
         bot.run_continuous()
     except Exception as e:
         print(f"❌ Error fatal: {e}")
