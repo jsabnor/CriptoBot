@@ -20,7 +20,7 @@ Esta carpeta `dist/` contiene todo lo necesario para ejecutar tus bots neuronale
 
 2.  **Dar permisos de ejecución:**
     ```bash
-    chmod +x install.sh start_bots.sh stop_bots.sh
+    chmod +x install.sh sudo
     ```
 
 3.  **Instalar:**

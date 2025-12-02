@@ -314,7 +314,7 @@ class NeuralBot:
 
     def run_continuous(self):
         """Bucle principal de ejecución."""
-        print(f"🚀 [{self.BOT_ID}] Iniciando bucle continuo...")
+        print(f"🚀 [{self.BOT_ID}] Iniciando bucle continuo...", flush=True)
         
         while True:
             try:
@@ -334,7 +334,7 @@ class NeuralBot:
                 
                 # Esperar 1 minuto antes de siguiente chequeo (para no saturar)
                 # En producción real, esto debería esperar al cierre de vela
-                print("⏳ Esperando 60s...")
+                print("⏳ Esperando 60s...", flush=True)
                 time.sleep(60)
                 
             except KeyboardInterrupt:
